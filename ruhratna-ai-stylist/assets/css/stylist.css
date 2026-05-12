@@ -1,0 +1,1899 @@
+/* =========================================================
+   RUHRATNA · AI STYLIST — Brand stylesheet
+   Two screens · mobile-first · responsive · two-column on desktop
+
+   Every visual rule is scoped under .app so the host WordPress
+   theme cannot override our buttons, chips, borders, etc.
+   :root tokens, @font-face, and @keyframes are intentionally
+   left unscoped (they're either global or self-contained).
+   Snap-scroll rules on <html> also stay unscoped because <html>
+   is an ancestor of .app, not a descendant — and themes don't
+   interfere with scroll-snap-type.
+   ========================================================= */
+
+
+/* =========================================================
+   1.  BRAND FONTS — loaded from ruhratna.com
+   ========================================================= */
+@font-face {
+  font-family: 'Agatho';
+  src: url(https://ruhratna.com/wp-content/uploads/2025/10/Agatho.woff2) format('woff2');
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Helvetica Neue';
+  src: url(https://ruhratna.com/wp-content/uploads/2024/02/Helvetica-Neue-Regular.woff2) format('woff2');
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Helvetica Neue Thin';
+  src: url(https://ruhratna.com/wp-content/uploads/2024/03/Helvetica-Neue-Thin.woff2) format('woff2');
+  font-weight: 100; font-style: normal; font-display: swap;
+}
+
+
+/* =========================================================
+   2.  DESIGN TOKENS
+   ========================================================= */
+:root {
+  --gold:        #C9A96E;
+  --gold-light:  #E8D5B0;
+  --gold-dark:   #A07840;
+  --deep:        #1A1208;
+  --cream:       #FAF6F0;
+  --warm-white:  #FDF9F4;
+  --text-main:   #2D1F0A;
+  --text-muted:  #8B7355;
+  --border:      rgba(201, 169, 110, 0.25);
+
+  --bad:         #cc4444;
+  --good:        #2E7D32;
+
+  --font-display: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-accent:  'Agatho', Georgia, serif;
+  --font-body:    'Helvetica Neue', Helvetica, Arial, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-thin:    'Helvetica Neue Thin', 'Helvetica Neue', Helvetica, Arial, -apple-system, sans-serif;
+
+  --header-h:        56px;
+  --content-max:     1200px;
+  --tablet-max:      680px;
+  --gutter-mobile:   24px;
+  --gutter-tablet:   32px;
+  --gutter-desktop:  48px;
+
+  --shadow-sm:   0 1px 2px rgba(26, 18, 8, 0.04);
+  --shadow-md:   0 4px 14px rgba(26, 18, 8, 0.06);
+  --shadow-lg:   0 10px 28px rgba(26, 18, 8, 0.10);
+}
+
+
+/* =========================================================
+   3.  RESET / BASE — scoped to .app
+   ========================================================= */
+.app * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+.app img   { display: block; max-width: 100%; }
+.app button {
+  font: inherit; color: inherit; background: none;
+  border: 0; cursor: pointer;
+}
+
+
+/* =========================================================
+   4.  APP SHELL — absorbs html/body background+font reset
+   ========================================================= */
+.app {
+  position: relative;
+  min-height: 100dvh;
+  background: var(--cream);
+  color: var(--text-main);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+.app .screen[hidden] { display: none !important; }
+
+
+/* =========================================================
+   6.  LAYOUT WRAPPER
+   ========================================================= */
+.app .layout { width: 100%; margin: 0 auto; }
+
+
+/* =========================================================
+   7.  HERO  (Screen 1 — deep card)
+   ========================================================= */
+.app .hero {
+  position: relative;
+  background: var(--deep);
+  color: #fff;
+  padding: 24px 20px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* subtle gold glow tucked into the top-right corner of the dark card */
+.app .hero-glow {
+  position: absolute;
+  top: -25%;
+  right: -20%;
+  width: 75%;
+  height: 110%;
+  background: radial-gradient(
+    ellipse at 70% 20%,
+    rgba(201, 169, 110, 0.12) 0%,
+    rgba(201, 169, 110, 0.04) 45%,
+    transparent 75%
+  );
+  pointer-events: none;
+}
+
+.app .hero-inner { position: relative; z-index: 1; }
+
+/* pill badge */
+.app .pill-badge {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 8px 18px;
+  border: 1.5px solid var(--gold);
+  border-radius: 4px;
+  background: rgba(201, 169, 110, 0.10);
+  font-family: var(--font-body);
+  font-size: 13px; font-weight: 500; letter-spacing: 0.6px;
+  color: var(--gold-light);
+  margin-bottom: 20px;
+  animation: badge-glow 2.4s ease-in-out infinite;
+  white-space: nowrap;
+}
+.app .pill-spark { color: var(--gold); font-size: 13px; line-height: 1; }
+
+.app .pulse-dot {
+  display: inline-block;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 0 0 rgba(201, 169, 110, 0.7);
+  animation: pulse 1.8s infinite;
+}
+@keyframes pulse {
+  0%   { box-shadow: 0 0 0 0    rgba(201, 169, 110, 0.7); }
+  70%  { box-shadow: 0 0 0 11px rgba(201, 169, 110, 0);   }
+  100% { box-shadow: 0 0 0 0    rgba(201, 169, 110, 0);   }
+}
+@keyframes badge-glow {
+  0%, 100% { box-shadow: 0 0 12px rgba(201, 169, 110, 0.20); }
+  50%      { box-shadow: 0 0 26px rgba(201, 169, 110, 0.50); }
+}
+
+/* headline */
+.app .hero-title {
+  font-family: var(--font-display);
+  font-weight: 200;
+  font-size: 36px;
+  line-height: 1.2;
+  letter-spacing: -0.5px;
+  margin: 0 0 8px;
+  color: #fff;
+}
+.app .hero-title-gold { color: var(--gold); font-style: italic; white-space: nowrap; font-weight: 300; }
+
+.app .hero-sub {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 13px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.80);
+  margin: 0 0 16px;
+  max-width: 380px;
+}
+
+
+/* =========================================================
+   8.  BUTTONS
+   ========================================================= */
+.app .btn,
+.app [type=button].btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 8px; width: 100%;
+  padding: 16px 22px;
+  border-radius: 4px;
+  font-family: var(--font-body);
+  font-size: 14px; font-weight: 400; letter-spacing: 0.3px;
+  cursor: pointer;
+  transition: transform .15s ease, filter .2s ease, background .2s ease, box-shadow .2s ease;
+}
+.app .btn:active { transform: scale(0.985); }
+
+.app .btn-gold,
+.app [type=button].btn-gold {
+  background: #C9A96E !important;
+  color: #1A1208 !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.25) inset,
+    0 8px 22px rgba(201, 169, 110, 0.30);
+}
+.app .btn-gold:hover,
+.app [type=button].btn-gold:hover {
+  background: #C9A96E !important;
+  filter: brightness(1.04) !important;
+  border: none !important;
+}
+.app .btn-arrow { transition: transform .2s ease; }
+.app .btn-gold:hover .btn-arrow { transform: translateX(3px); }
+
+/* Find My Match — dark, full width */
+.app .btn-find,
+.app [type=button].btn-find {
+  width: 100%;
+  background: #1A1208 !important;
+  color: #C9A96E !important;
+  border-radius: 6px;
+  padding: 18px;
+  font-family: var(--font-body);
+  font-size: 15px; font-weight: 500;
+  letter-spacing: 0.5px;
+  margin-top: 24px;
+  box-shadow: 0 8px 22px rgba(26, 18, 8, 0.28);
+}
+.app .btn-find:hover { background: #221809 !important; }
+.app .btn-find:hover .btn-arrow { transform: translateX(3px); }
+
+
+/* =========================================================
+   9.  SHARED SECTION TYPOGRAPHY
+   ========================================================= */
+.app .section-label {
+  font-family: var(--font-body);
+  font-size: 10px; letter-spacing: 3px; font-weight: 400;
+  color: var(--gold-dark);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.app .section-title {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-size: 22px;
+  line-height: 1.3;
+  color: var(--text-main);
+  margin: 8px 0 0;
+  letter-spacing: -0.2px;
+}
+
+
+/* =========================================================
+  10.  HOW IT WORKS  (Screen 1 — secondary)
+   ========================================================= */
+.app .how-it-works {
+  padding: 0;
+  margin-top: 24px;
+}
+.app .how-it-works-inner { width: 100%; }
+.app .how-it-works.secondary .section-title {
+  font-size: 20px;
+  margin-bottom: 14px;
+}
+
+.app .steps {
+  margin-top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.app .step-card {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  min-height: auto;
+  background: #ffffff;
+  border: 1px solid rgba(201, 169, 110, 0.30);
+  border-left: 3px solid #C9A96E;
+  border-color: rgba(201, 169, 110, 0.30) !important;
+  border-left-color: #C9A96E !important;
+  border-radius: 6px;
+  padding: 12px 14px;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
+  transition: box-shadow .25s ease, border-color .25s ease, transform .15s ease;
+}
+.app .step-card:hover {
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.10);
+  border-color: rgba(201, 169, 110, 0.55) !important;
+  border-left-color: #A07840 !important;
+  transform: translateY(-1px);
+}
+
+.app .step-num {
+  flex: 0 0 36px;
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #C9A96E 0%, #A07840 100%);
+  color: #ffffff;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 18px;
+  display: inline-flex; align-items: center; justify-content: center;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.18);
+  box-shadow: 0 2px 8px rgba(160, 120, 64, 0.35);
+}
+
+.app .step-body { flex: 1; min-width: 0; }
+.app .step-title {
+  font-family: var(--font-body);
+  font-size: 15px; font-weight: 600;
+  color: var(--text-main);
+  margin: 0 0 4px;
+}
+.app .step-text {
+  font-family: var(--font-body);
+  font-size: 13px; line-height: 1.5;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* decorative tagline below the steps */
+.app .screen1-tagline {
+  display: flex; flex-direction: column; align-items: center;
+  margin-top: 16px;
+  gap: 12px;
+}
+.app .tagline-divider {
+  width: 60px; height: 1px;
+  background: var(--gold);
+  opacity: 0.7;
+}
+.app .tagline-text {
+  font-family: var(--font-accent);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 14px;
+  color: #8B7355;
+  margin: 0 0 8px;
+  text-align: center;
+  letter-spacing: 0.2px;
+  opacity: 1;
+  visibility: visible;
+}
+
+
+/* =========================================================
+  11.  GUIDANCE  (Screen 2 — left column)
+   ========================================================= */
+.app .guidance {
+  padding: 24px var(--gutter-mobile) 12px;
+}
+.app .guidance-title {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-size: 26px;
+  line-height: 1.25;
+  color: var(--text-main);
+  margin: 0 0 6px;
+  letter-spacing: -0.3px;
+}
+.app .guidance-sub {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #5a4a3a;
+  margin: 0 0 20px;
+  max-width: 460px;
+}
+
+
+/* =========================================================
+  12.  PHOTO GRID — examples (inside .guidance)
+       2-column portrait grid at every breakpoint.
+   ========================================================= */
+.app .photo-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.app .ex-card {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1.5px solid rgba(201, 169, 110, 0.30);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  background: #ffffff;
+}
+/* the avoid card gets a soft red border instead of gold */
+.app .ex-card:has(.ex-photo-dark) {
+  border-color: rgba(200, 50, 50, 0.30);
+}
+
+.app .ex-photo {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 4;                /* portrait, like a phone photo */
+  border-radius: 0;
+  border: 0;
+  box-shadow: none;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* subtle diagonal pattern overlay so placeholders read as intentional */
+.app .ex-photo::before {
+  content: "";
+  position: absolute; inset: 0;
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(0, 0, 0, 0.03) 0,
+    rgba(0, 0, 0, 0.03) 1px,
+    transparent 1px,
+    transparent 9px
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+.app .ex-photo-dark::before {
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.03) 0,
+    rgba(255, 255, 255, 0.03) 1px,
+    transparent 1px,
+    transparent 9px
+  );
+}
+
+.app .ex-placeholder {
+  position: relative; z-index: 2;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 6px;
+  text-align: center;
+  padding: 0 10px;
+}
+.app .ex-cam     { color: rgba(45, 31, 10, 0.45); }
+.app .ex-cam-bad { color: #ff8d8d; }
+.app .ex-placeholder-title {
+  font-family: var(--font-body);
+  font-size: 13px; font-weight: 500;
+  color: var(--text-main);
+  letter-spacing: 0.1px;
+}
+.app .ex-placeholder-sub {
+  font-family: var(--font-body);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.app .ex-placeholder-title-bad { color: #ffb0b0; }
+.app .ex-placeholder-sub-bad   { color: rgba(255, 255, 255, 0.55); }
+
+/* top-left badge */
+.app .ex-badge {
+  position: absolute;
+  top: 10px; left: 10px; z-index: 3;
+  font-family: var(--font-body);
+  font-size: 10px; font-weight: 700;
+  padding: 4px 9px;
+  border-radius: 3px;
+  letter-spacing: 0.4px;
+}
+.app .ex-badge-good {
+  background: rgba(20, 120, 40, 0.90);
+  color: #90ffb0;
+}
+.app .ex-badge-bad {
+  background: rgba(180, 30, 30, 0.90);
+  color: #ffb0b0;
+}
+
+/* full-width bottom overlay tag */
+.app .ex-tag {
+  position: absolute;
+  bottom: 0; left: 0; right: 0; z-index: 3;
+  background: rgba(26, 18, 8, 0.80);
+  color: #ffffff;
+  font-family: var(--font-body);
+  font-size: 11px;
+  padding: 8px 14px;
+  text-align: center;
+  letter-spacing: 0.2px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.app .ex-tag-bad { background: rgba(180, 30, 30, 0.80); }
+
+
+/* =========================================================
+  13.  TIP PILLS — full-width rows
+   ========================================================= */
+/* tips-inline — plain inline text row, dot separators, no card chrome */
+.app .tips-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 10px 0 20px;
+}
+.app .tip-inline {
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.app .tip-sep {
+  color: rgba(201, 169, 110, 0.5);
+  font-size: 12px;
+}
+
+
+/* =========================================================
+  14.  GOLD DIVIDER (Screen 2 mobile/tablet)
+   ========================================================= */
+.app .gold-divider {
+  border: 0;
+  height: 1px;
+  background: var(--gold);
+  opacity: 0.45;
+  margin: 32px var(--gutter-mobile);
+}
+
+
+/* =========================================================
+  15.  UPLOAD SECTION (Screen 2 — right column)
+   ========================================================= */
+.app .upload-section { padding: 8px var(--gutter-mobile) 8px; }
+
+.app .action-title {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-size: 24px;
+  line-height: 1.3;
+  color: var(--text-main);
+  margin: 24px 0 14px;
+  letter-spacing: -0.2px;
+}
+
+/* single drop zone — replaces the old camera + gallery tiles */
+.app .upload-zone {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 28px 24px;
+  background: #ffffff;
+  border: 2px dashed rgba(201, 169, 110, 0.50);
+  border-color: rgba(201, 169, 110, 0.50) !important;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: all .2s ease;
+}
+.app .upload-zone[hidden] { display: none; }
+.app .upload-zone:hover,
+.app .upload-zone:focus-visible {
+  border-style: solid;
+  border-color: #C9A96E !important;
+  background: rgba(201, 169, 110, 0.04);
+  box-shadow: 0 4px 20px rgba(201, 169, 110, 0.15);
+  outline: none;
+}
+.app .upload-zone:active { transform: translateY(0); }
+
+.app .upload-icon-wrap {
+  flex: 0 0 56px;
+  width: 56px; height: 56px;
+  background: linear-gradient(135deg, #FAF6F0 0%, #F0E8D8 100%);
+  border: 1px solid rgba(201, 169, 110, 0.30);
+  border-radius: 8px;
+  color: var(--gold-dark);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+
+.app .upload-text {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column;
+}
+.app .upload-title {
+  font-family: var(--font-body);
+  font-size: 15px; font-weight: 500;
+  color: var(--text-main);
+}
+.app .upload-sub {
+  font-family: var(--font-thin); font-weight: 100;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+
+.app .upload-arrow {
+  flex-shrink: 0;
+  margin-left: auto;
+  font-size: 20px;
+  color: var(--gold);
+  transition: transform .2s ease;
+}
+.app .upload-zone:hover .upload-arrow { transform: translateX(3px); }
+
+
+/* =========================================================
+  16.  PHOTO PREVIEW CARD (after photo selected)
+   ========================================================= */
+.app .photo-preview-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  background: #ffffff;
+  border: 2px solid #C9A96E;
+  border-color: #C9A96E !important;
+  border-radius: 8px;
+  box-shadow: 0 4px 18px rgba(201, 169, 110, 0.18);
+}
+.app .photo-preview-card[hidden] { display: none; }
+
+.app .preview-thumb {
+  flex-shrink: 0;
+  width: 72px; height: 72px;
+  border-radius: 0;
+  object-fit: cover;
+  background: var(--cream);
+}
+
+.app .preview-info {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column;
+}
+.app .preview-name {
+  font-family: var(--font-body);
+  font-size: 14px; font-weight: 500;
+  color: var(--text-main);
+  word-break: break-all;
+  line-height: 1.3;
+}
+.app .preview-size {
+  font-family: var(--font-thin); font-weight: 100;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.app .change-photo-btn {
+  display: block;
+  align-self: flex-start;
+  background: none; border: 0; padding: 0;
+  margin-top: 4px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--gold-dark);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.app .change-photo-btn:hover { color: var(--deep); }
+
+.app .preview-check {
+  flex-shrink: 0;
+  margin-left: auto;
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: var(--gold);
+  color: #ffffff;
+  font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 8px rgba(201, 169, 110, 0.35);
+}
+
+
+/* =========================================================
+  17.  OCCASION SECTION — slides down after photo selected
+   ========================================================= */
+.app .occasion-section {
+  padding: 0 var(--gutter-mobile);
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition:
+    max-height   .55s ease,
+    opacity      .35s ease,
+    padding-top  .4s  ease,
+    padding-bottom .4s ease,
+    margin-top   .4s  ease;
+  margin-top: 0;
+}
+.app .occasion-section.is-visible {
+  max-height: 1200px;
+  opacity: 1;
+  padding-top: 8px;
+  padding-bottom: 24px;
+  margin-top: 28px;
+}
+
+.app .action-title-sm {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-size: 22px;
+  line-height: 1.3;
+  color: var(--text-main);
+  margin: 0 0 14px;
+  letter-spacing: -0.2px;
+}
+
+.app .chip-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.app .chip {
+  display: flex; flex-direction: column;
+  align-items: center; gap: 6px;
+  padding: 12px 8px;
+  background: #ffffff !important;
+  border: 1.5px solid rgba(201, 169, 110, 0.30) !important;
+  border-color: rgba(201, 169, 110, 0.30) !important;
+  border-radius: 4px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--text-main) !important;
+  cursor: pointer;
+  text-align: center;
+  transition: all .2s ease;
+}
+.app .chip:hover { border-color: #C9A96E !important; }
+.app .chip:active { transform: scale(0.97); }
+.app .chip.is-selected {
+  background: rgba(201, 169, 110, 0.12) !important;
+  border-color: #C9A96E !important;
+  color: #A07840 !important;
+  font-weight: 500;
+  box-shadow: 0 2px 10px rgba(201, 169, 110, 0.20);
+}
+.app .chip-emoji { font-size: 20px; line-height: 1; display: block; }
+
+/* missing-occasion validation — shake + warm border flash, then return to normal */
+.app .chip-grid.is-shaking {
+  animation: chip-grid-shake 0.6s ease;
+  border-radius: 6px;
+}
+@keyframes chip-grid-shake {
+  0%, 100% {
+    transform: translateX(0);
+    box-shadow: 0 0 0 0 rgba(199, 126, 80, 0);
+  }
+  15% { transform: translateX(-6px); box-shadow: 0 0 0 2px rgba(199, 126, 80, 0.45); }
+  35% { transform: translateX(6px);  box-shadow: 0 0 0 2px rgba(199, 126, 80, 0.45); }
+  55% { transform: translateX(-4px); box-shadow: 0 0 0 2px rgba(199, 126, 80, 0.45); }
+  75% { transform: translateX(4px);  box-shadow: 0 0 0 2px rgba(199, 126, 80, 0.45); }
+  90% { transform: translateX(0);    box-shadow: 0 0 0 2px rgba(199, 126, 80, 0.20); }
+}
+
+.app .occasion-hint-error {
+  margin: 12px 0 0;
+  text-align: center;
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: #C77E50;
+  letter-spacing: 0.2px;
+}
+.app .occasion-hint-error[hidden] { display: none; }
+
+.app .action-hint {
+  margin: 10px 0 0;
+  text-align: center;
+  font-family: var(--font-thin); font-weight: 100;
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.2px;
+}
+.app .action-hint-spark { color: var(--gold); margin-right: 4px; }
+
+
+/* =========================================================
+  18.  TABLET  (≥ 768px)
+   ========================================================= */
+@media (min-width: 768px) {
+  :root { --gutter-mobile: var(--gutter-tablet); }
+
+  .app .layout {
+    max-width: var(--tablet-max);
+    padding: 0 var(--gutter-tablet);
+  }
+
+  /* HERO becomes a rounded card */
+  .app .hero {
+    padding: 32px 36px;
+    border-radius: 12px;
+    margin-top: 24px;
+    min-height: 360px;
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .app .hero-title { font-size: 40px; }
+
+  /* HOW IT WORKS — flat in column */
+  .app .how-it-works {
+    padding-left: 0; padding-right: 0;
+    padding-top: 32px; padding-bottom: 28px;
+  }
+
+  /* Screen 2 sections lose their horizontal gutter (the column has its own) */
+  .app .guidance,
+  .app .upload-section,
+  .app .occasion-section { padding-left: 0; padding-right: 0; }
+  .app .gold-divider     { margin-left: 0; margin-right: 0; }
+
+  .app .guidance       { padding-top: 32px; padding-bottom: 16px; }
+  .app .guidance-title { font-size: 30px; }
+}
+
+
+/* =========================================================
+  19.  DESKTOP  (≥ 1024px) — two-column layout
+   ========================================================= */
+@media (min-width: 1024px) {
+
+
+  .app .layout {
+    max-width: var(--content-max);
+    padding: 48px var(--gutter-desktop) 64px;
+    display: grid;
+    grid-template-columns: 45fr 55fr;
+    gap: 48px;
+    align-items: start;
+  }
+  .app .layout-right { min-width: 0; }
+
+  /* fold heights on desktop are set globally (100vh + scroll-padding-top) */
+  .app .fold-1 {
+    align-items: center;                /* center hero + steps vertically */
+    padding-top: 32px;
+    padding-bottom: 32px;
+  }
+
+  /* fold-2's left column stays pinned while the right column scrolls */
+  .app .fold-2 .layout-left {
+    position: sticky;
+    top: 80px;
+    align-self: start;
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+  .app .fold-2 .layout-left::-webkit-scrollbar { display: none; }
+
+  /* ========== SCREEN 1 ========== */
+  .app .hero {
+    padding: 44px 52px;
+    border-radius: 12px;
+    margin-top: 0;
+    min-height: 480px;
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .app .hero-title {
+    font-size: 52px;
+    line-height: 1.1;
+  }
+  .app .hero-sub   { max-width: 420px; font-size: 14px; }
+  .app .pill-badge { margin-bottom: 24px; }
+
+  /* how-it-works lives in fold-1's right column on desktop */
+  .app .how-it-works { padding: 0; margin-top: 0; }
+  .app .how-it-works-inner { max-width: 520px; }
+  .app .how-it-works.secondary .section-title {
+    font-size: 28px;
+    font-weight: 200;
+    margin-bottom: 28px;
+  }
+
+  .app .steps {
+    margin-top: 0;
+    gap: 14px;
+  }
+  .app .step-card { padding: 18px 20px; min-height: 80px; }
+
+  .app .screen1-tagline { margin-top: 36px; gap: 14px; }
+  .app .tagline-text    { font-size: 18px; }
+
+  /* ========== SCREEN 2 ========== */
+  .app .guidance       { padding: 0; }
+  .app .guidance-title { font-size: 32px; }
+  .app .guidance-sub   { font-size: 13px; }
+
+  /* photo grid is universal 2-col portrait — desktop just adds breathing room */
+  .app .photo-grid { gap: 16px; margin-top: 20px; }
+  .app .tips-inline { margin-top: 18px; }
+
+  /* divider only separates guidance from upload on mobile/tablet */
+  .app .gold-divider { display: none; }
+
+  .app .upload-section,
+  .app .occasion-section { padding: 0; }
+
+  .app .action-title   { font-size: 28px; margin-bottom: 24px; }
+
+  .app .upload-zone { padding: 32px 28px; }
+
+  .app .occasion-section.is-visible { margin-top: 28px; padding-bottom: 0; }
+
+  .app .action-title-sm { font-size: 22px; margin-bottom: 16px; }
+  .app .chip-grid       { gap: 12px; }
+  .app .chip            { padding: 14px 10px; font-size: 13px; }
+  .app .chip-emoji      { font-size: 22px; }
+
+  .app .btn-find        { margin-top: 24px; padding: 18px; }
+  .app .action-hint     { font-size: 12px; margin-top: 12px; }
+}
+
+
+/* =========================================================
+  20.  WIDE DESKTOP  (≥ 1280px)
+   ========================================================= */
+@media (min-width: 1280px) {
+  .app .layout { gap: 64px; padding-top: 56px; }
+  .app .hero   { padding: 44px 56px; }
+}
+
+
+/* =========================================================
+  21.  SCREEN 3 — LOADING / ANALYSING
+   ========================================================= */
+
+/* the loading screen reuses .layout, but its left column is NOT sticky */
+.app .loading-screen .layout-left {
+  position: static;
+  max-height: none;
+  overflow: visible;
+}
+
+/* mobile gutters for the loading screen sections */
+.app .loading-left  { padding: 32px var(--gutter-mobile) 16px; }
+.app .loading-right { padding: 0 var(--gutter-mobile) 32px; }
+
+/* ---------- 21a. Loading orb ---------- */
+.app .loading-orb {
+  position: relative;
+  width: 120px; height: 120px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #E8D5B0 0%, #C9A96E 50%, #A07840 100%);
+  box-shadow: 0 0 40px rgba(201, 169, 110, 0.40);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 48px;
+  margin: 0 auto;                      /* centered on mobile */
+  animation: breathe 2s ease-in-out infinite;
+}
+.app .loading-orb::before {
+  /* inner rotating ring */
+  content: "";
+  position: absolute; inset: 8px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: rgba(255, 255, 255, 0.75);
+  border-right-color: rgba(255, 255, 255, 0.30);
+  animation: ring-spin 2.4s linear infinite;
+}
+.app .loading-orb-icon {
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.18));
+}
+
+@keyframes breathe {
+  0%, 100% { transform: scale(1);    box-shadow: 0 0 40px rgba(201, 169, 110, 0.30); }
+  50%      { transform: scale(1.06); box-shadow: 0 0 60px rgba(201, 169, 110, 0.60); }
+}
+@keyframes ring-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---------- 21b. Title + subtitle ---------- */
+.app .loading-title {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-size: 28px;
+  line-height: 1.25;
+  color: var(--text-main);
+  margin: 24px 0 0;
+  text-align: center;
+  letter-spacing: -0.3px;
+}
+.app .loading-subtitle {
+  font-family: var(--font-body); font-weight: 400;
+  font-size: 13px; line-height: 1.6;
+  color: var(--text-muted);
+  max-width: 300px;
+  margin: 8px auto 0;
+  text-align: center;
+}
+
+/* ---------- 21c. Step indicators ---------- */
+.app .loading-steps {
+  margin-top: 32px;
+  display: flex; flex-direction: column;
+  gap: 10px;
+}
+
+.app .lstep {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: #ffffff;
+  transition: all .3s ease;
+}
+
+.app .lstep-icon {
+  flex-shrink: 0;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: #d4c8b8;
+  color: var(--text-muted);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display);
+  font-size: 13px; font-weight: 500;
+  transition: background .3s ease, color .3s ease;
+}
+
+.app .lstep-text {
+  flex: 1; min-width: 0;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--text-main);
+}
+
+.app .lstep-status {
+  font-family: var(--font-body); font-weight: 500;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+  transition: color .3s ease;
+}
+
+/* active state */
+.app .lstep[data-state="active"] {
+  background: rgba(201, 169, 110, 0.06);
+  border-color: rgba(201, 169, 110, 0.40);
+  animation: lstep-shimmer 2s ease-in-out infinite;
+}
+.app .lstep[data-state="active"] .lstep-icon {
+  background: linear-gradient(135deg, #C9A96E 0%, #A07840 100%);
+  color: #ffffff;
+}
+.app .lstep[data-state="active"] .lstep-status { color: var(--text-muted); }
+
+@keyframes lstep-shimmer {
+  0%, 100% { box-shadow: 0 0 0   rgba(201, 169, 110, 0.00); }
+  50%      { box-shadow: 0 0 16px rgba(201, 169, 110, 0.22); }
+}
+
+/* done state */
+.app .lstep[data-state="done"] {
+  background: rgba(20, 120, 40, 0.04);
+  border-color: rgba(20, 120, 40, 0.30);
+}
+.app .lstep[data-state="done"] .lstep-icon {
+  background: #14a84a;
+  color: #ffffff;
+}
+.app .lstep[data-state="done"] .lstep-status { color: #14a84a; }
+
+/* ---------- 21d. Outfit reading card ---------- */
+.app .outfit-card {
+  background: #ffffff;
+  border: 1.5px solid rgba(201, 169, 110, 0.40);
+  border-radius: 8px;
+  padding: 28px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity .5s ease, transform .5s ease;
+}
+.app .outfit-card[hidden]    { display: none; }
+.app .outfit-card.is-visible { opacity: 1; transform: translateY(0); }
+
+/* Phase 2 loading card reuses .outfit-detail-card styling but sits a touch larger
+   than the results-screen instance — it's the focal point while /match is in flight */
+.app .outfit-detail-card.outfit-card {
+  padding: 28px;
+}
+@media (min-width: 1024px) {
+  .app .outfit-detail-card.outfit-card { padding: 32px; }
+}
+
+/* Phase 1 — skeleton placeholder */
+.app .skeleton-line {
+  height: 20px;
+  background: linear-gradient(90deg, #f0ebe3 25%, #e8ddd0 50%, #f0ebe3 75%);
+  background-size: 200% 100%;
+  border-radius: 4px;
+  margin-bottom: 10px;
+  animation: shimmer 1.5s infinite;
+}
+.app .skeleton-line.wide   { width: 70%; }
+.app .skeleton-line.medium { width: 45%; }
+
+.app .skeleton-chips { margin: 4px -3px 0; }
+.app .skeleton-chip {
+  display: inline-block;
+  width: 70px; height: 26px;
+  background: linear-gradient(90deg, #f0ebe3 25%, #e8ddd0 50%, #f0ebe3 75%);
+  background-size: 200% 100%;
+  border-radius: 3px;
+  margin: 3px;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0%   { background-position:  200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.app .outfit-card-label {
+  font-family: var(--font-body);
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--gold-dark);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.app .outfit-card-spark { color: var(--gold); margin-right: 4px; }
+
+.app .outfit-card-type {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-size: 30px;
+  line-height: 1.2;
+  color: var(--text-main);
+  margin: 0 0 16px;
+  letter-spacing: -0.4px;
+  text-transform: capitalize;
+}
+
+.app .outfit-card-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;            /* margins live on the chips per spec */
+  margin: 0 -3px;
+}
+.app .outfit-chip {
+  display: inline-block;
+  background: rgba(201, 169, 110, 0.10);
+  border: 1px solid rgba(201, 169, 110, 0.30);
+  border-radius: 3px;
+  padding: 4px 12px;
+  margin: 3px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--gold-dark);
+  text-transform: capitalize;
+}
+.app .outfit-chip:empty { display: none; }
+
+.app .outfit-card-message {
+  font-family: var(--font-body); font-weight: 400;
+  font-size: 13px; line-height: 1.6;
+  color: var(--text-muted);
+  margin-top: 20px;
+}
+
+.app .outfit-card-loader {
+  display: flex; gap: 6px;
+  margin-top: 16px;
+}
+.app .dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--gold);
+  animation: bounce 1.2s infinite;
+}
+.app .dot:nth-child(2) { animation-delay: .2s; }
+.app .dot:nth-child(3) { animation-delay: .4s; }
+
+@keyframes bounce {
+  0%, 60%, 100% { transform: translateY(0);   }
+  30%           { transform: translateY(-8px); }
+}
+
+/* ---------- 21e. Loading screen — tablet & desktop ---------- */
+@media (min-width: 768px) {
+  .app .loading-left,
+  .app .loading-right { padding-left: 0; padding-right: 0; }
+  .app .loading-left  { padding-top: 40px; padding-bottom: 24px; }
+  .app .loading-right { padding-bottom: 40px; }
+}
+
+@media (min-width: 1024px) {
+  .app .loading-left,
+  .app .loading-right { padding: 0; }
+
+  /* on desktop the orb + copy align left within the column */
+  .app .loading-orb { margin: 0; }
+  .app .loading-title,
+  .app .loading-subtitle {
+    text-align: left;
+    margin-left: 0;
+    margin-right: 0;
+  }
+  .app .loading-subtitle { max-width: 360px; }
+
+  .app .outfit-card-type    { font-size: 36px; }
+  .app .outfit-card-message { font-size: 13px; }
+}
+
+
+/* =========================================================
+  22.  SCREEN 4 — RESULTS
+   ========================================================= */
+
+/* results-layout — single container, mobile-first single column */
+.app .results-layout {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* on mobile/tablet, flatten the two columns so we can re-order
+   stylist + complete-look between outfit strip and product cards */
+.app .results-layout .results-left,
+.app .results-layout .results-right {
+  display: contents;
+}
+
+/* mobile/tablet — interleaved order:
+   1 outfit detail card → 2 stylist → 3 complete look →
+   4 matches header → 5 tier-1 → 6 show more → 7 tier-2 */
+.app .results-layout .outfit-detail-card { order: 1; }
+.app .results-layout .stylist-card       { order: 2; }
+.app .results-layout .complete-look-card { order: 3; margin-bottom: 16px; }
+.app .results-layout .results-header     { order: 4; }
+.app .results-layout #tier1-cards        { order: 5; }
+.app .results-layout #show-more-btn      { order: 6; }
+.app .results-layout #tier2-cards        { order: 7; }
+
+/* gap between Stylist Says and Style These Together — applies on every breakpoint */
+.app .stylist-card       { margin-bottom: 16px; }
+.app .complete-look-card { margin-top: 0; }
+
+/* ---------- 22a. Outfit detail card (top of right column) ---------- */
+.app .outfit-detail-card {
+  background: #ffffff;
+  border: 1px solid rgba(201, 169, 110, 0.25);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+.app .odc-label {
+  font-family: var(--font-body);
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--gold-dark);
+  text-transform: uppercase;
+  font-weight: 400;
+  margin-bottom: 12px;
+}
+.app .odc-icon {
+  display: inline-block;
+  font-size: 16px;
+  color: var(--gold);
+  line-height: 1;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+.app .odc-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.app .odc-colour-dot {
+  flex-shrink: 0;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 0, 0, 0.10);
+  background: var(--gold);
+}
+.app .odc-type {
+  font-family: var(--font-body);
+  font-weight: 300;
+  font-size: 18px;
+  line-height: 1.2;
+  color: var(--text-main);
+  text-transform: capitalize;
+  letter-spacing: 0.5px;
+}
+
+.app .odc-chips {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.app .odc-chip {
+  background: var(--cream);
+  border-radius: 6px;
+  padding: 8px 10px;
+  min-width: 0;
+}
+.app .odc-chip-label {
+  display: block;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 9px;
+  color: var(--gold-dark);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-bottom: 2px;
+}
+.app .odc-chip-value {
+  display: block;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-main);
+  text-transform: capitalize;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app .retake-btn {
+  background: none; border: 0; padding: 0;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--gold-dark);
+  text-decoration: underline;
+  cursor: pointer;
+  white-space: nowrap;
+  margin-top: 10px;
+}
+.app .retake-btn:hover { color: var(--deep); }
+
+/* ---------- 22b. Stylist reading card (dark) ---------- */
+.app .stylist-card {
+  background: var(--deep);
+  border-radius: 8px;
+  padding: 24px;
+}
+.app .stylist-icon {
+  font-size: 20px;
+  color: var(--gold);
+  line-height: 1;
+}
+.app .stylist-label {
+  font-family: var(--font-body);
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: rgba(201, 169, 110, 0.70);
+  text-transform: uppercase;
+  margin: 8px 0 12px;
+}
+.app .stylist-text {
+  font-family: var(--font-body);
+  font-style: normal;
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 1.7;
+  letter-spacing: 0.2px;
+  color: var(--cream);
+  margin: 0;
+}
+
+/* ---------- 22c. Complete look card ---------- */
+.app .complete-look-card {
+  background: linear-gradient(135deg,
+    rgba(201, 169, 110, 0.08) 0%,
+    rgba(201, 169, 110, 0.03) 100%);
+  border: 1.5px solid rgba(201, 169, 110, 0.35);
+  border-radius: 8px;
+  overflow: hidden;
+  padding: 20px;
+  margin-top: 16px;
+}
+.app .complete-look-card[hidden] { display: none; }
+
+.app .cl-header {
+  margin-bottom: 16px;
+}
+.app .cl-title {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-main);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.app .cl-description {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-main);
+  opacity: 1;
+  margin: 0 0 16px;
+}
+.app .cl-pieces {
+  display: flex;
+  gap: 12px;
+  margin: 12px 0 0;
+  align-items: stretch;
+}
+
+/* product image thumbnails inside the complete-look card */
+.app .cl-product-thumb {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid rgba(201, 169, 110, 0.25);
+}
+.app .cl-thumb-img-wrap {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--cream);
+}
+.app .cl-thumb-img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  padding: 0;
+  display: block;
+}
+.app .cl-thumb-name {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-main);
+  padding: 6px 8px 0;
+  white-space: normal;
+  text-align: left;
+  line-height: 1.35;
+}
+.app .cl-thumb-price {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gold-dark);
+  padding: 2px 8px;
+}
+.app .cl-thumb-cart-btn {
+  display: block;
+  width: calc(100% - 16px);
+  box-sizing: border-box;
+  margin: 8px 8px 12px;
+  padding: 8px 12px;
+  background: var(--deep);
+  color: var(--gold);
+  border-radius: 4px;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 500;
+  text-align: center;
+  text-decoration: none;
+  transition: background .2s ease, color .2s ease;
+}
+.app .cl-thumb-cart-btn:hover { background: var(--gold); color: var(--deep); }
+
+/* text-pill fallback (used when an image fails to load) */
+.app .cl-piece-pill {
+  background: #ffffff;
+  border: 1px solid rgba(201, 169, 110, 0.30);
+  border-radius: 4px;
+  padding: 6px 14px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--text-main);
+  white-space: nowrap;
+}
+.app .cl-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+}
+.app .cl-price {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 22px;
+  color: var(--text-main);
+}
+.app .cl-cta {
+  background: var(--gold);
+  color: var(--deep);
+  border: 0;
+  border-radius: 4px;
+  padding: 10px 20px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: filter .2s ease;
+}
+.app .cl-cta:hover { filter: brightness(1.06); }
+
+/* ---------- 22d. Results header ---------- */
+.app .results-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  margin-bottom: 18px;
+}
+.app .results-label {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  color: var(--gold-dark);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.app .results-count {
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--text-main);
+}
+
+/* ---------- 22e. Product cards ---------- */
+.app .cards-grid {
+  display: flex;
+  flex-direction: column;
+}
+.app .product-card {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  margin-bottom: 16px;
+  transition: box-shadow .2s ease, transform .2s ease;
+}
+.app .product-card:hover {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.10);
+  transform: translateY(-2px);
+}
+
+.app .card-badges {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px 0;
+  background: #ffffff;
+}
+.app .type-badge {
+  border-radius: 3px;
+  padding: 4px 12px;
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.app .type-badge.neck   { background: rgba(201, 169, 110, 0.12); color: var(--gold-dark); }
+.app .type-badge.ears   { background: rgba(100, 150, 255, 0.10); color: #4060bf; }
+.app .type-badge.accent { background: rgba(150, 100, 200, 0.10); color: #7840a0; }
+.app .type-badge.hands  { background: rgba(100, 180, 100, 0.10); color: #407840; }
+
+.app .match-score {
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.app .score-num {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-main);
+}
+
+.app .card-image-wrap {
+  width: 100%;
+  aspect-ratio: 1 / 1;                 /* always a perfect square */
+  margin: 0;
+  border-radius: 0;                    /* card itself clips via overflow:hidden */
+  overflow: hidden;
+  border: 0;
+  background: var(--cream);
+}
+.app .card-image {
+  width: 100%; height: 100%;
+  object-fit: cover;                   /* fill the square edge-to-edge */
+  padding: 0;
+  background: var(--cream);
+  display: block;
+  transition: transform .3s ease;
+}
+.app .product-card:hover .card-image { transform: scale(1.03); }
+
+.app .card-info { padding: 16px; }
+.app .card-title {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-size: 18px;
+  color: var(--text-main);
+  margin: 0 0 8px;
+  letter-spacing: -0.2px;
+}
+.app .card-reason {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 13px;
+  line-height: 1.65;
+  color: #4a3a2a;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  background: rgba(201, 169, 110, 0.06);
+  border-left: 3px solid rgba(201, 169, 110, 0.40);
+  border-radius: 0 2px 2px 0;
+}
+.app .card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.app .card-price {
+  font-family: var(--font-body);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--text-main);
+}
+.app .card-cta {
+  background: var(--deep);
+  color: var(--gold);
+  border-radius: 4px;
+  padding: 10px 18px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background .2s ease, color .2s ease;
+}
+.app .card-cta:hover { background: var(--gold); color: var(--deep); }
+
+/* ---------- 22f. Show more — section divider style ---------- */
+.app .show-more-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  padding: 20px 0;
+  margin: 0;
+  cursor: pointer;
+}
+.app .show-more-line {
+  flex: 1;
+  height: 1px;
+  background: rgba(201, 169, 110, 0.30);
+  transition: background .2s ease;
+}
+.app .show-more-text {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--gold-dark);
+  white-space: nowrap;
+  padding: 0 16px;
+  transition: color .2s ease;
+}
+.app .show-more-btn:hover .show-more-line { background: rgba(201, 169, 110, 0.55); }
+.app .show-more-btn:hover .show-more-text { color: var(--deep); }
+
+/* ---------- 22g. Tablet & desktop overrides ---------- */
+@media (min-width: 1024px) {
+  /* desktop: two columns, left is sticky AI voice, right scrolls with page */
+  .app .results-layout {
+    display: flex;
+    flex-direction: row;
+    gap: 40px;
+    align-items: flex-start;
+    padding: 40px 60px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  /* turn the column wrappers back on (they're display: contents on mobile) */
+  .app .results-layout .results-left,
+  .app .results-layout .results-right {
+    display: block;
+  }
+
+  /* clear mobile order — desktop uses standard DOM flow inside each column */
+  .app .results-layout .outfit-detail-card,
+  .app .results-layout .stylist-card,
+  .app .results-layout .complete-look-card,
+  .app .results-layout .results-header,
+  .app .results-layout #tier1-cards,
+  .app .results-layout #show-more-btn,
+  .app .results-layout #tier2-cards {
+    order: 0;
+  }
+  /* complete-look on desktop is the last left-column item — drop its mobile gap */
+  .app .results-layout .complete-look-card { margin-bottom: 0; }
+
+  .app .results-left {
+    width: 45%;
+    flex-shrink: 0;
+    align-self: flex-start;
+    position: sticky;
+    top: 80px;
+    height: fit-content;
+  }
+  .app .results-right {
+    width: 55%;
+    flex: unset;
+    min-width: 0;
+  }
+
+  /* card-image-wrap stays 1:1 via aspect-ratio at every breakpoint */
+  .app .card-title       { font-size: 20px; }
+  .app .card-price       { font-size: 19px; }
+}
+
+/* outfit-detail-card mobile tweaks — slightly chunkier colour dot */
+@media (max-width: 768px) {
+  .app .odc-colour-dot {
+    width: 28px; height: 28px;
+  }
+}
+
+
+/* =========================================================
+  23.  MOBILE — fold padding + Camera/Gallery split
+   ========================================================= */
+
+/* fold-1 mobile — defensive visibility + outer padding */
+@media (max-width: 768px) {
+  .app .fold-1 {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1;
+    min-height: auto;
+    padding: 16px 20px 24px;
+  }
+  .app .fold-2 { padding: 24px 0 100px; }
+}
+
+/* fold-2 mobile — horizontal-scroll photo strip + tighter rhythm */
+@media (max-width: 768px) {
+  .app .photo-grid {
+    display: flex;
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    scroll-padding-left: var(--gutter-mobile);
+    gap: 10px;
+    margin: 16px calc(var(--gutter-mobile) * -1) 0;
+    padding: 0 var(--gutter-mobile) 8px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .app .photo-grid::-webkit-scrollbar { display: none; }
+
+  .app .ex-card {
+    flex-shrink: 0;
+    width: 140px;
+    scroll-snap-align: start;
+  }
+  .app .ex-photo {
+    width: 140px;
+    aspect-ratio: 2 / 3;
+  }
+
+  /* spacing inside fold 2 — title sits flush under the inline tips */
+  .app .upload-section .action-title {
+    font-size: 18px;
+    font-weight: 300;
+    margin: 0 0 14px;
+  }
+  .app .occasion-section.is-visible { margin-top: 20px; }
+}
+
+/* mobile = two side-by-side Camera/Gallery buttons; desktop = single drop zone */
+.app .mobile-upload-options { display: none; }
+
+@media (max-width: 768px) {
+  .app .upload-zone {
+    display: none !important;
+    height: 0;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+  .app .mobile-upload-options { display: flex; }
+}
+
+@media (min-width: 769px) {
+  .app .upload-zone           { display: flex; }
+  .app .mobile-upload-options { display: none; }
+}
+
+.app .mobile-upload-options[hidden] { display: none !important; }
+
+.app .mobile-upload-options {
+  gap: 10px;
+  width: 100%;
+}
+.app .mob-upload-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 12px;
+  background: #ffffff;
+  border: 1.5px solid rgba(201, 169, 110, 0.35);
+  border-color: rgba(201, 169, 110, 0.35) !important;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color .2s ease;
+}
+.app .mob-upload-btn:hover { border-color: #C9A96E !important; }
+
+.app .mob-btn-icon-wrap {
+  width: 48px; height: 48px;
+  background: var(--cream);
+  border: 1px solid rgba(201, 169, 110, 0.20);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.app .mob-btn-label {
+  font-family: var(--font-body);
+  font-size: 14px; font-weight: 500;
+  color: var(--text-main);
+}
+.app .mob-btn-sub {
+  font-family: var(--font-body);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+
+/* =========================================================
+  24.  SNAP SCROLL — html-level (must remain unscoped: <html>
+        is an ancestor of .app, not a descendant). Themes
+        don't interfere with snap behavior so this is safe.
+   ========================================================= */
+html {
+  scroll-snap-type: y mandatory;
+  scroll-behavior: smooth;
+  scroll-padding-top: var(--header-h);
+}
+/* Results screen is a long-scroll page, not a snapped fold —
+   JS adds .is-results to <html> when #screen-results is shown,
+   reload/back clears it naturally. Fixes Safari snap-back. */
+html.is-results {
+  scroll-snap-type: none;
+}
+.app .fold,
+.app #screen-loading,
+.app #screen-results {
+  scroll-snap-align: start;
+  min-height: 100vh;
+}
+@media (max-width: 1024px) {
+  html { scroll-snap-type: none; }
+  .app .fold,
+  .app #screen-loading,
+  .app #screen-results {
+    min-height: auto;
+    scroll-snap-align: none;
+  }
+}
