@@ -1,134 +1,193 @@
-# Ruhratna AI Stylist — Frontend
+# Ruhratna AI Stylist — WordPress Plugin
 
 ## What this is
 
-A single-page web app that recommends jewellery to match the user's outfit photo.
-The flow is: user uploads an outfit photo → picks an occasion → backend analyses
-the photo and matches jewellery → results screen shows a stylist note plus
-ranked product cards. Built for Ruhratna, a premium Indian jewellery brand,
-so the visual language is restrained — light type, gold accents, refined corners.
+A self-contained WordPress plugin that adds a `/ai-stylist` page to the
+Ruhratna site. The page collects an outfit photo + occasion from the
+visitor, sends the image (compressed via TinyPNG) to the Railway-hosted
+analysis backend, then renders a stylist note plus ranked jewellery
+matches. Designed to drop into the existing WooCommerce-themed site
+without conflicting with Elementor or the theme's CSS reset.
 
 ## Stack
 
-Plain HTML / CSS / vanilla JS. No build step, no framework, no package manager.
-Open `index.html` directly in a browser; everything ships from this folder.
+PHP + plain HTML/CSS/vanilla JS. No build step, no framework, no
+package manager. Hand-rolled. Drop the folder into
+`wp-content/plugins/`, activate, visit `/ai-stylist`.
 
 ```
-ruhratna-stylist-ui/
-├── index.html          # all markup for every screen
-├── css/stylist.css     # full stylesheet (mobile-first, three breakpoints)
-├── js/stylist.js       # state machine + API calls (single IIFE)
-└── assets/             # placeholders for fonts/images
+ruhratna-ai-stylist/                  (this folder; checked out as ruhratna-stylist-ui/)
+├── ruhratna-ai-stylist.php           # plugin bootstrap (header, hooks, enqueue)
+├── includes/
+│   └── proxy.php                     # REST routes + TinyPNG → Railway proxy
+├── templates/
+│   └── ai-stylist.php                # page template, wrapped by theme header/footer
+├── assets/
+│   ├── css/stylist.css               # brand stylesheet, every rule scoped under .app
+│   ├── js/stylist.js                 # single IIFE, state machine + REST calls
+│   └── fonts/                        # placeholder (fonts load from ruhratna.com)
+├── .gitignore
+└── CLAUDE.md
 ```
 
-There is no router. Screens are sibling `<section>` elements toggled via
-`style.display` from JS.
+## How activation works
 
-## API
+`register_activation_hook` runs `ruhratna_ais_activate()` once when the
+plugin is enabled in wp-admin. It calls `get_page_by_path('ai-stylist')`
+and, if no page exists with that slug, inserts one
+(`post_title="AI Stylist"`, `post_status="publish"`, `post_type="page"`)
+with empty content. The actual UI is supplied at render time by the
+template filter — the page row in the DB is just a hook for the URL.
 
-```js
-const API_BASE = "https://web-production-8b1fc.up.railway.app";
+Deactivation does nothing: the page stays so links don't break.
+
+## Template loading
+
+`template_include` filter swaps in the plugin's
+[templates/ai-stylist.php](templates/ai-stylist.php) whenever
+`is_page('ai-stylist')` is true. The template calls `get_header()` and
+`get_footer()`, so the theme's nav and footer wrap around the AI Stylist
+content. Between them sits the full `<div class="app">…</div>` markup
+(landing fold, loading screen, results screen, hidden file inputs).
+
+The plugin uses no `Template Name:` annotation because annotation only
+works for theme files — `template_include` is the right hook for plugin
+templates.
+
+## Asset enqueueing
+
+[ruhratna-ai-stylist.php](ruhratna-ai-stylist.php) hooks
+`wp_enqueue_scripts` at **priority 999** so the plugin's CSS lands at
+the bottom of `<head>` and wins cascade order against Elementor and the
+theme's reset. Both CSS and JS are gated behind
+`if (!is_page('ai-stylist')) return;` so they don't load anywhere else.
+
+`wp_localize_script` injects `window.ruhratnaStyler.apiBase` pointing at
+`rest_url('ruhratna-stylist/v1')` so the JS can read the REST base
+without hardcoding the site URL.
+
+Cache-busting: `RUHRATNA_AIS_VERSION` is the fourth arg to
+`wp_enqueue_style` and `wp_enqueue_script`, so it becomes the `?ver=`
+query string. Bump it (and the matching `Version:` in the plugin
+header) whenever the CSS or JS changes — that's the only way to make
+browsers refetch.
+
+## REST proxy
+
+```php
+const RUHRATNA_TINIFY_KEY  = '...';
+const RUHRATNA_RAILWAY_URL = 'https://web-production-8b1fc.up.railway.app';
 ```
 
-Two POST calls fire from `Find My Match` → handled by `findMatch()` in
-[js/stylist.js](js/stylist.js):
+Both endpoints are public (`permission_callback => '__return_true'`)
+because they need to work for unauthenticated visitors.
 
-| Step | Endpoint | Body | Returns |
-|---|---|---|---|
-| 1 | `POST /analyse` | `{ image: <base64>, occasion }` | `{ outfit_analysis: {...} }` |
-| 2 | `POST /match`   | `{ outfit_analysis, occasion }` | `{ stylist_reading, recommendations[], complete_look }` |
+| Route | Body | Flow |
+|---|---|---|
+| `POST /wp-json/ruhratna-stylist/v1/analyse` | `{ image: <base64>, occasion }` | base64 → TinyPNG → re-encode → Railway `/analyse` |
+| `POST /wp-json/ruhratna-stylist/v1/match`   | `{ outfit_analysis, occasion }` | Forward as-is to Railway `/match` |
 
-`outfit_analysis` carries `dominant_colour`, `outfit_type`, `neckline`,
-`style_weight`, `western_or_ethnic`, `occasion_confirmed`, `colour_accents[]`.
-`recommendations[]` items: `{ product_id, title, type, tier, reason, match_score, price, image_url, product_url }`
-where `type ∈ {neck, ears, accent, hands}` and `tier ∈ {1, 2}`.
+TinyPNG compression: POST raw bytes to `api.tinify.com/shrink` with
+`Authorization: Basic base64('api:KEY')`, read the `Location` header,
+GET the compressed bytes with the same auth. Status codes and errors
+propagate back to the JS as `WP_Error` with a 502.
 
-## Screen flow
+Upstream JSON is parsed and re-emitted via `WP_REST_Response` so the
+WordPress REST stack handles content negotiation and status codes.
 
-The whole app lives inside `<div class="app">` under one sticky header. JS just
-toggles which top-level section is visible.
+## Screen flow (frontend)
 
-```
-[Header — sticky, white, RUHRATNA wordmark, optional back arrow]
-
-#main-content        ← landing (Fold 1 + Fold 2)
-   .fold.fold-1      hero (left)  +  how it works + tagline (right)
-   .fold.fold-2      guidance + photo grid + tips (left)
-                     upload + occasion (right)
-
-#screen-loading      ← shown while /analyse + /match are in flight
-   loading-orb + step indicators (left)
-   skeleton/outfit reading card (right)
-
-#screen-results      ← shown after /match returns
-   stylist-card + complete-look-card (left, sticky)
-   outfit-detail-card + matches header + tier-1 + show-more + tier-2 (right)
-```
-
-Transitions happen in [js/stylist.js](js/stylist.js):
-
-- `Style My Outfit →` smooth-scrolls to `#upload-section`
-- `Find My Match` → `findMatch()` swaps `#main-content` for `#screen-loading`,
-  runs the two API calls, animates the step indicators, then swaps to
-  `#screen-results` with an 800ms pause so the user sees the second step turn green
-- Header back arrow is `location.reload()` (start over)
-- Errors route through `showError(message)` which replaces the loading section
-  with a centered "Try Again" card
-
-## Test mode
-
-When the page is opened from the file system (`window.location.protocol === "file:"`)
-JS unhides the gold `⚡ Test Mode` pill in the header. Clicking it skips the
-upload/API flow entirely and renders the results screen with `TEST_ANALYSIS`
-and `TEST_MATCH` constants defined inside the IIFE. Use this when iterating on
-results-screen styling.
-
-## Responsive layout
-
-Mobile-first base styles, then three media queries:
-
-| Breakpoint | Behavior |
-|---|---|
-| `< 768px` mobile | Single-column flow. Hero is a rounded dark card. Photo grid is a horizontal-scroll strip. Camera + Gallery shown as two side-by-side tiles (`.mob-upload-btn`). Tips render as one inline `.tips-inline` text row. |
-| `≥ 768px` tablet | Single column capped at `--tablet-max: 680px`. Hero gets a card. Upload zone replaces the mobile tiles (one drop zone). Photo grid becomes a 2-col grid. |
-| `≥ 1024px` desktop | Two-column **`.fold`** grid (45fr/55fr) for landing, with snap scrolling between Fold 1 and Fold 2. **`#screen-results`** uses a separate **`.results-layout`** flex container (45% / 55%, sticky left). |
-| `≥ 1280px` wide | Slightly more breathing room (gap, padding). |
-
-Snap scroll (block 24 in CSS) — `html { scroll-snap-type: y mandatory }` plus
-`.fold, #screen-loading, #screen-results { scroll-snap-align: start; min-height: 100vh }`.
-Disabled on mobile/tablet via `@media (max-width: 1024px) { html { scroll-snap-type: none } }`.
-
-`scroll-padding-top: var(--header-h)` accounts for the 56px sticky header so
-snap targets line up below it.
-
-### Results screen — desktop layout
+Single-page state machine, routed through the REST proxy:
 
 ```
-.results-layout                       (.results-screen wraps it)
-   display: flex
-   gap: 32px
-   padding: 32px var(--gutter-desktop)    ← matches header inner padding (48px)
-   max-width: 1400px
-   margin: 0 auto
-
-   .results-left   width 45%, position: sticky, top: 80px, height: fit-content
-   .results-right  width 55%
+.app                                ← single wrapper (every CSS rule scoped under this)
+├── #main-content                   ← landing (Fold 1 hero + Fold 2 upload)
+├── #screen-loading                 ← shown while /analyse + /match are in flight
+└── #screen-results                 ← shown after /match returns
 ```
 
-On mobile the two columns flatten via `display: contents` so `order:` can
-interleave their children:
+JS swaps which top-level section is visible via `style.display`.
 
-```
-1 outfit detail card → 2 stylist → 3 complete look →
-4 matches header → 5 tier-1 → 6 show more → 7 tier-2
-```
+- **Style My Outfit →** smooth-scrolls to `#upload-section`
+- **Find My Match →** validates a photo + occasion are picked, then
+  `findMatch()` swaps to `#screen-loading`, runs `/analyse` + `/match`,
+  animates the step indicators, then swaps to `#screen-results` with an
+  800 ms pause so the user sees the green ✓ on step 2.
+- On `#screen-results` show, JS adds `is-results` to `<html>` (kills
+  snap-scroll for the long-scroll results page) and pushes a history
+  entry. Browser back fires `popstate` which restores `#main-content`
+  and clears the `is-results` class.
+- Errors route through `showError(message)` which replaces the loading
+  section with a centered "Try Again" card.
 
-The complete-look card is one DOM element (`#complete-look-card`); CSS order
-moves it on mobile, no twin element.
+## Theme isolation
+
+The Ruhratna site uses Elementor and a theme with an aggressive
+`[type=button], [type=submit], button { background-color: transparent;
+border: 1px solid #c36; color: #c36 }` reset that hijacks any unscoped
+button. The plugin's defense-in-depth strategy, layered:
+
+1. **`.app` scoping.** Every selector in
+   [assets/css/stylist.css](assets/css/stylist.css) is prefixed with
+   `.app` (except `:root`, `@font-face`, `@keyframes`, and `html` snap-
+   scroll rules — those last ones can't be scoped because `<html>` is
+   an ancestor of `.app`). The reset block at the top of the file is
+   `.app * { … }`, `.app img { … }`, `.app button { … }`. `html`/`body`
+   font/background reset has been folded into the `.app` rule itself.
+2. **`[type=button]` matched specificity** for buttons that the
+   theme's reset targets — selectors are written as
+   `.app .btn-gold, .app [type=button].btn-gold` so we tie on
+   specificity and win on source order (plugin CSS loads after the
+   theme via priority 999).
+3. **`!important` on color properties only** — `background`, `color`,
+   `border`, `border-color` on `.btn-gold`, `.btn-find`, `.chip`,
+   `.chip:hover`, `.chip.is-selected`, etc. Never on layout (padding,
+   margin, display) — those weren't being hijacked and adding
+   `!important` there would block legitimate overrides.
+4. **Literal hex on the buttons that fight hardest.** `var(--gold)`
+   and `var(--deep)` were unreliable in some contexts (CSS variable
+   inheritance was being intercepted), so the two hottest buttons
+   (`.btn-gold` and `.btn-find`) and the border-colors on chip / upload
+   / step-card / preview / mob-upload-btn use literal `#C9A96E` and
+   `#1A1208` directly.
+5. **`border: none !important` + `outline: none !important`** on
+   `.btn-gold` to kill the theme's pink 1 px border outright (gold
+   buttons are intentionally borderless).
+
+When the theme starts winning again, audit selector specificity in
+DevTools — almost always the fix is to add a higher-specificity branch
+to our selector list (e.g. add `.app [type=button].new-class` next to
+`.app .new-class`).
+
+## Add to Cart flow
+
+Each product card renders `<a class="card-cta"
+href="/?add-to-cart=PRODUCT_ID">Add to Cart</a>`. The card image is
+wrapped in a separate `<a target="_blank">` linking to the PDP
+(`rec.product_url`), so the image click opens the product page in a new
+tab while the button click adds to cart.
+
+JS attaches a delegated click listener directly to `#tier1-cards`,
+`#tier2-cards`, and `#complete-look-card` (not `document` — catching
+earlier in the bubble chain prevents the theme from opening a new tab
+first). The handler:
+
+1. `e.preventDefault()` — no navigation.
+2. `fetch(url, { credentials: 'same-origin' })` — WooCommerce updates
+   the cart session cookie server-side.
+3. On 2xx, `window.jQuery(document.body).trigger('added_to_cart')` —
+   the theme's side cart listens on that event and pops open.
+4. Button text flashes "Adding..." → "✓ Added" → reverts after
+   1500 ms; pointer-events disabled during the request to prevent
+   double-clicks.
+
+`target="_blank"` is removed from cart anchors entirely so a JS failure
+falls back to same-tab navigation, not a new tab.
 
 ## Brand tokens
 
-Defined once in `:root` ([css/stylist.css:30](css/stylist.css#L30)).
+Defined once in `:root` at the top of
+[assets/css/stylist.css](assets/css/stylist.css):
 
 ```
 --gold:        #C9A96E
@@ -138,14 +197,15 @@ Defined once in `:root` ([css/stylist.css:30](css/stylist.css#L30)).
 --cream:       #FAF6F0       (page background)
 --text-main:   #2D1F0A
 --text-muted:  #8B7355
---border:      rgba(201,169,110,0.25)
+--border:      rgba(201, 169, 110, 0.25)
 
---font-display: 'Helvetica Neue', Helvetica, Arial, sans-serif    (light weight headings)
---font-accent:  'Agatho', Georgia, serif                          (italic taglines)
---font-body:    'Helvetica Neue', Helvetica, Arial, ...           (body)
---font-thin:    'Helvetica Neue Thin', 'Helvetica Neue', ...      (subtext, hints)
+--font-display: 'Helvetica Neue'
+--font-accent:  'Agatho'                       (italic taglines)
+--font-body:    'Helvetica Neue'
+--font-thin:    'Helvetica Neue Thin'
 
---header-h:        56px
+--header-h:        56px       (kept for scroll-padding offset against
+                               theme's sticky nav — do not remove)
 --content-max:     1200px
 --tablet-max:      680px
 --gutter-mobile:   24px
@@ -153,68 +213,103 @@ Defined once in `:root` ([css/stylist.css:30](css/stylist.css#L30)).
 --gutter-desktop:  48px
 ```
 
-Brand fonts (Agatho + two Helvetica Neue weights) load via `@font-face` from
-`ruhratna.com`. Butler is intentionally not used — Helvetica Neue 100/200/300
-carries every heading.
+Fonts load from `ruhratna.com` via `@font-face`. The `assets/fonts/`
+folder is a placeholder for any future locally-hosted weights.
 
-### Border-radius scale (Ruhratna's restrained look)
+### Border-radius scale
 
-- Large cards (product, outfit detail, stylist, complete-look, upload zone, photo preview, loading outfit card, mobile upload tile, photo guide card): **8px**
-- Hero card: **12px** (slightly more — feature card)
-- Medium cards (step card, tips card, lstep, btn-find, .odc-chip): **6px**
-- Small (chips, buttons, AI Stylist pill): **4px**
-- Very small badges (type-badge, ex-badge, outfit-chip): **3px**
-- Image containers inside cards (`.card-image-wrap`, `.ex-photo`, `.preview-thumb`): **0** (parent clips via `overflow: hidden`)
-- Circular (orb, dots, step-num, hdr-back, preview-check, colour-dot): **50%**
+- Hero card: **12px** (feature card)
+- Large cards (product, outfit detail, stylist, complete-look, upload
+  zone, photo preview, loading outfit, mobile upload tile, photo guide
+  card): **8px**
+- Medium (step card, lstep, btn-find): **6px**
+- Small (chips, btn-gold, AI Stylist pill): **4px**
+- Tiny badges (type-badge, ex-badge, outfit-chip): **3px**
+- Image containers inside cards (`.card-image-wrap`, `.ex-photo`,
+  `.preview-thumb`): **0** (the parent clips via `overflow: hidden`)
+- Circular: **50%**
 
-## Key components
+## Responsive layout
 
-| Class | Where | Purpose |
-|---|---|---|
-| `.hero` | Fold 1 left | Dark card with badge, headline, subtext, gold CTA |
-| `.step-card` | Fold 1 right | White card, gold left rail, gradient circle numeral |
-| `.ex-card` / `.ex-photo` | Fold 2 left | Photo guide thumbnails. Mobile: horizontal-scroll 140×210 (2/3). Desktop: 2-col grid (3/4). |
-| `.tips-inline` | Fold 2 left | One-row inline text tips, dot-separated, no card |
-| `.upload-zone` | Fold 2 right | Desktop drop zone (single `#photoInput`) |
-| `.mob-upload-btn` | Fold 2 right (mobile only) | Camera + Gallery tiles wired to `#cameraInput` (capture) and `#galleryInput` |
-| `.photo-preview-card` | After file selected | 80×80 thumbnail, name, size, "Change photo" link |
-| `.chip-grid` / `.chip` | Occasion section | 3-col chip grid; first chip pre-selected (`.is-selected`) |
-| `.btn-find` | Bottom of occasion | Dark "Find My Match" CTA |
-| `.loading-orb` | Screen 3 left | 120px gold-gradient breathing circle + rotating ring + sparkle |
-| `.lstep` | Screen 3 left | Step indicator with `data-state="pending|active|done"` |
-| `.outfit-card` | Screen 3 right | Renders outfit reading; sibling skeleton card visible during phase 1 |
-| `.outfit-detail-card` | Screen 4 right (top) | White card with label, colour dot + type, 2x2 chip grid + accents row, "↺ Try another" |
-| `.stylist-card` | Screen 4 left | Dark card with italic Helvetica quote |
-| `.complete-look-card` | Screen 4 left (or mobile order 3) | Gold-tinted card with description + 2 product thumbs (each with own Add to Cart) |
-| `.product-card` | Screen 4 right | Square product image (cover, padded), badges below, dark "Add to Cart" CTA, gold quote-block reason |
-| `.show-more-btn` | Screen 4 right | Gold-rule divider with "SHOW MORE" centered text |
+Mobile-first base styles, then three breakpoints:
+
+| Breakpoint | Behavior |
+|---|---|
+| `< 768px` mobile | Single-column. Hero is a rounded dark card. Photo grid is a horizontal-scroll strip that bleeds to screen edge via negative margin matching `.fold-2`'s removed padding. Camera + Gallery shown as two `.mob-upload-btn` tiles. Tips inline. |
+| `≥ 768px` tablet | Single column capped at `--tablet-max: 680px`. Hero is a card. Upload zone replaces the mobile tiles. Photo grid becomes a 2-col grid. |
+| `≥ 1024px` desktop | Two-column `.fold` grid (45fr / 55fr) for landing, snap-scrolling between Fold 1 and Fold 2. Results screen uses a separate flex layout (45% / 55%, sticky left column). |
+| `≥ 1280px` wide | More breathing room (larger gap, taller padding). |
+
+Snap scroll lives in section 24 of the stylesheet on `html` (the only
+unscoped rules — `<html>` is an ancestor of `.app` so we can't move
+them inward). `html.is-results { scroll-snap-type: none }` disables
+snap on the long-scroll results page. Disabled entirely on tablet/
+mobile via `@media (max-width: 1024px) { html { scroll-snap-type: none
+} }`.
 
 ## Conventions
 
-- **No build, no framework.** Anything added must remain hand-rolled.
-- **Mobile-first CSS.** Base rules describe mobile; tablet/desktop are media-query overrides.
-- **CSS custom properties** drive colors, fonts, gutters, header height. Don't hardcode colors — use the token.
-- **All JS lives in one IIFE** in [js/stylist.js](js/stylist.js). Closures hold app state (`selectedFile`, `selectedOccasion`, `outfitAnalysis`). Functions are not hoisted to `window` except where inline `onclick` requires it (which we currently avoid).
-- **Inline `onclick="location.reload()"`** is used on the back arrow and `↺ Try another outfit` button — no IIFE wiring needed for `location`.
-- **`escapeHtml()`** wraps all API-string interpolations into `innerHTML`. Don't bypass it.
-- **Three file inputs** (`#photoInput` desktop, `#cameraInput` mobile camera with `capture="environment"`, `#galleryInput` mobile gallery). All three feed the same `handleFileSelected(file)` handler via a shared `change` listener.
-- **`renderCompleteLook(card, cl, recs)`** fills the complete-look card with image-thumb fallback (`img.onerror` swaps the thumb for a `.cl-piece-pill` text fallback).
-- **Don't introduce new font weights** beyond what `--font-thin` (100), `--font-body` (400), and the explicit 200/300/500/600 we already use cover.
-- **Fold structure on landing must stay symmetric** — Fold 1 (hero left + steps right) and Fold 2 (guidance left + upload right) each fill `100vh` on desktop with the snap-scroll pattern.
+- **No build, no framework.** Anything added stays hand-rolled.
+- **Mobile-first CSS.** Base rules describe mobile; tablet/desktop are
+  media-query overrides.
+- **Every CSS rule scoped to `.app`** except the three intentional
+  exceptions (`:root`, `@font-face`, `@keyframes`, `html` snap-scroll).
+- **All JS lives in one IIFE** in
+  [assets/js/stylist.js](assets/js/stylist.js). Closures hold app state
+  (`selectedFile`, `selectedOccasion`, `outfitAnalysis`).
+- **`escapeHtml()` wraps all API strings** interpolated into
+  `innerHTML`. Don't bypass it.
+- **Three file inputs** (`#photoInput` desktop, `#cameraInput` mobile
+  camera with `capture="environment"`, `#galleryInput` mobile gallery).
+  All three share `handleFileSelected(file)`.
+- **`renderCompleteLook(card, cl, recs)`** fills the complete-look card
+  with image-thumb fallback (`img.onerror` swaps the thumb for a
+  `.cl-piece-pill` text fallback).
+- **Bump `RUHRATNA_AIS_VERSION`** in both the plugin header and the
+  `define()` whenever CSS or JS changes. Both are wired to `?ver=`.
+- **Inline `onclick="location.reload()"`** is used on the "↺ Try
+  another outfit" button — no extra wiring needed.
 
 ## Gotchas
 
-- **Sticky header offset:** scroll-padding-top is `var(--header-h)` (56px). When adding new snap targets, account for this.
-- **`scroll-snap-type: y mandatory` is on `<html>`**, not the app shell. Disabling it on mobile is essential — multiple media queries already handle this.
-- **`.layout-left` is sticky only inside `.fold-2`** on desktop (not `.fold-1`, not `#screen-loading`). The results screen uses its own `.results-left` sticky rule, not the layout one.
-- **`.complete-look-card` is one element**, not two. CSS `order` moves it on mobile via the `display: contents` flatten trick.
-- **`.ex-photo`** has no `border-radius`; the parent `.ex-card`'s 8px rounding plus `overflow: hidden` does the clipping. Same pattern for `.card-image-wrap` (0) inside `.product-card` (8).
-- **Image errors** in product cards swap the wrap to a beige bg and hide the broken `<img>`. In complete-look thumbnails, `img.onerror` replaces the entire thumb with a text pill.
-- **Test fixtures** live next to the click handler — keep `TEST_ANALYSIS` / `TEST_MATCH` in sync with the real API shape if either changes.
+- **The plugin's REST routes are unauthenticated.** If you add rate
+  limiting or auth later, set `permission_callback` to a real callback
+  in [includes/proxy.php](includes/proxy.php).
+- **TinyPNG key is hardcoded** at the top of
+  [includes/proxy.php](includes/proxy.php). Move it to `wp_options` or
+  an env var before open-sourcing.
+- **CSS variable resolution can fail inside Elementor wrappers** in
+  rare cases. The hottest button rules use literal hex deliberately —
+  if you swap them back to `var()`, retest on the staging site.
+- **Snap-scroll is on `<html>`, not `.app`.** When you add new
+  full-viewport sections (`.fold`-style children of `.app`), add them
+  to the `.app .fold, .app #screen-loading, .app #screen-results` rule
+  in section 24 of the stylesheet so the snap-align kicks in.
+- **`.complete-look-card` is one element**, not two. CSS `order` moves
+  it on mobile via the `display: contents` flatten trick on
+  `.results-left` / `.results-right`.
+- **Add to Cart click listener must be on the containers**, not on
+  `document`. A `document`-level handler fires after the theme has
+  already opened the link in a new tab.
+- **`window.jQuery` may be absent** in the rare WP setup without
+  jQuery. The `added_to_cart` trigger is guarded — falling through
+  means the side cart simply doesn't auto-open, but the item is still
+  in the cart.
 
 ## When extending
 
-- New screen → add a `<section id="screen-X">` inside `.app`, hide via `style.display="none"` initially, transition to it from JS, snap-target it on desktop.
-- New brand color → add to `:root`, never to a single rule.
-- New radius → consult the scale above; don't introduce a fourth radius value.
-- New API field → extend the test fixtures so `⚡ Test Mode` keeps rendering correctly.
+- New REST route → register inside
+  `ruhratna_ais_register_routes()` in
+  [includes/proxy.php](includes/proxy.php).
+- New page or screen inside the plugin → add markup to
+  [templates/ai-stylist.php](templates/ai-stylist.php), CSS to
+  [assets/css/stylist.css](assets/css/stylist.css) (remember to scope
+  with `.app`), bump the version.
+- New brand colour → add to `:root`. If the theme overrides it,
+  consider using a literal hex on the affected rule.
+- New button class → use the dual-selector pattern
+  (`.app .new-btn, .app [type=button].new-btn`) so it survives the
+  theme's `[type=button]` reset.
+- New product card field → extend `buildProductCard()` in
+  [assets/js/stylist.js](assets/js/stylist.js) and keep `escapeHtml()`
+  on any user-supplied / API-supplied string.
