@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Ruhratna AI Stylist
  * Description: AI-powered jewellery matching tool. Renders the AI Stylist UI on a dedicated page and proxies /analyse and /match calls to the Railway backend through WordPress REST endpoints (with TinyPNG image compression in between).
- * Version:     1.0.13
+ * Version:     1.0.28
  * Author:      Ruhratna
  * License:     GPL-2.0-or-later
  * Text Domain: ruhratna-ai-stylist
@@ -10,7 +10,7 @@
 
 defined('ABSPATH') or exit;
 
-define('RUHRATNA_AIS_VERSION',   '1.0.13');
+define('RUHRATNA_AIS_VERSION',   '1.0.28');
 define('RUHRATNA_AIS_DIR',       plugin_dir_path(__FILE__));
 define('RUHRATNA_AIS_URL',       plugin_dir_url(__FILE__));
 define('RUHRATNA_AIS_PAGE_SLUG', 'ai-stylist');

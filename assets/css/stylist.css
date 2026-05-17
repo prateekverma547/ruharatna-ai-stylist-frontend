@@ -6,9 +6,9 @@
    theme cannot override our buttons, chips, borders, etc.
    :root tokens, @font-face, and @keyframes are intentionally
    left unscoped (they're either global or self-contained).
-   Snap-scroll rules on <html> also stay unscoped because <html>
-   is an ancestor of .app, not a descendant — and themes don't
-   interfere with scroll-snap-type.
+   A handful of <html>-level rules (scroll-behavior,
+   scroll-padding-top) also stay unscoped because <html> is an
+   ancestor of .app and themes don't fight us over those.
    ========================================================= */
 
 
@@ -130,21 +130,34 @@
 
 .app .hero-inner { position: relative; z-index: 1; }
 
-/* pill badge */
+/* pill badge — the leading orb + sparkle render smaller in Safari
+   than in Chrome (Safari falls back to a different system font for
+   the ✦ dingbat, and the dot was already only 10px). Sizes below
+   are tuned so the orb reads as a real "live" indicator in Safari. */
 .app .pill-badge {
   display: inline-flex; align-items: center; gap: 10px;
-  padding: 8px 18px;
+  padding: 10px 20px;
   border: 1.5px solid var(--gold);
   border-radius: 4px;
   background: rgba(201, 169, 110, 0.10);
   font-family: var(--font-body);
-  font-size: 13px; font-weight: 500; letter-spacing: 0.6px;
+  font-size: 14px; font-weight: 500; letter-spacing: 0.6px;
   color: var(--gold-light);
   margin-bottom: 20px;
   animation: badge-glow 2.4s ease-in-out infinite;
   white-space: nowrap;
 }
-.app .pill-spark { color: var(--gold); font-size: 13px; line-height: 1; }
+/* Inline SVG sparkles cluster — one main 4-point star plus a small
+   secondary sparkle, the de-facto "AI generated" indicator (Gemini /
+   Apple Intelligence / Notion AI). Sized in px so it's font-
+   independent (the old ✦ glyph rendered smaller in Safari due to
+   system-font fallback). */
+.app .pill-spark {
+  width: 24px;
+  height: 24px;
+  fill: var(--gold);
+  flex-shrink: 0;
+}
 
 .app .pulse-dot {
   display: inline-block;
@@ -153,6 +166,28 @@
   background: var(--gold);
   box-shadow: 0 0 0 0 rgba(201, 169, 110, 0.7);
   animation: pulse 1.8s infinite;
+  flex-shrink: 0;
+}
+
+/* Top-right "LIVE" status on the hero card — naked label + pulse
+   dot, no chrome. The pulse animation carries the "live" signal;
+   the box around it was visual noise. Position absolute so it
+   doesn't push hero-inner content; z-index 2 lifts it above the
+   hero-glow gradient overlay. */
+.app .live-badge {
+  position: absolute;
+  top: 18px;
+  right: 20px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 1.6px;
+  color: var(--gold-light);
+  white-space: nowrap;
 }
 @keyframes pulse {
   0%   { box-shadow: 0 0 0 0    rgba(201, 169, 110, 0.7); }
@@ -295,6 +330,11 @@
   padding: 12px 14px;
   box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
   transition: box-shadow .25s ease, border-color .25s ease, transform .15s ease;
+  cursor: pointer;
+}
+.app .step-card:focus-visible {
+  outline: 2px solid #C9A96E;
+  outline-offset: 2px;
 }
 .app .step-card:hover {
   box-shadow: 0 8px 26px rgba(0, 0, 0, 0.10);
@@ -360,7 +400,7 @@
   11.  GUIDANCE  (Screen 2 — left column)
    ========================================================= */
 .app .guidance {
-  padding: 24px var(--gutter-mobile) 12px;
+  padding: 0 var(--gutter-mobile) 12px;
 }
 .app .guidance-title {
   font-family: var(--font-display);
@@ -368,7 +408,7 @@
   font-size: 26px;
   line-height: 1.25;
   color: var(--text-main);
-  margin: 0 0 6px;
+  margin: 0 0 4px;
   letter-spacing: -0.3px;
 }
 .app .guidance-sub {
@@ -392,6 +432,18 @@
   gap: 12px;
   margin-top: 16px;
 }
+
+/* On tablet/desktop the marquee wrapper is transparent — its
+   children participate in the .photo-grid layout directly. On
+   mobile the wrapper becomes a flex track that the keyframes
+   animate; see section 23 for the @media override. */
+.app .photo-track { display: contents; }
+
+/* JS-cloned cards exist in the DOM at every viewport (so we don't
+   have to re-clone on resize), but they're only meant to be visible
+   inside the mobile marquee. Hide them everywhere else; the mobile
+   @media block flips them back to block. */
+.app .ex-card[data-clone="true"] { display: none; }
 
 .app .ex-card {
   border-radius: 8px;
@@ -443,6 +495,20 @@
   );
 }
 
+/* Real photo fills the card, covers the placeholder pattern.
+   Sits below the badge (z-index 3) but above the ::before pattern
+   (z-index 1). object-fit:cover keeps any aspect ratio looking right. */
+.app .ex-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 2;
+  display: block;
+}
+.app .ex-photo:has(.ex-img)::before { display: none; }
+
 .app .ex-placeholder {
   position: relative; z-index: 2;
   display: flex; flex-direction: column; align-items: center;
@@ -485,43 +551,89 @@
   color: #ffb0b0;
 }
 
-/* full-width bottom overlay tag */
+/* full-width bottom overlay tag — now also hosts the ✓ / ✗ mark
+   that used to live in a separate top-left .ex-badge. Mark + label
+   are flex children so they read as a single "verdict" element
+   instead of a corner indicator the eye has to find. */
 .app .ex-tag {
   position: absolute;
   bottom: 0; left: 0; right: 0; z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
   background: rgba(26, 18, 8, 0.80);
   color: #ffffff;
   font-family: var(--font-body);
-  font-size: 11px;
-  padding: 8px 14px;
-  text-align: center;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 8px 12px;
   letter-spacing: 0.2px;
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
 }
-.app .ex-tag-bad { background: rgba(180, 30, 30, 0.80); }
+.app .ex-tag-bad { background: rgba(180, 30, 30, 0.85); }
+
+/* The mark sits inside .ex-tag with its own small chip — keeps the
+   green / red signal from the old corner badge but inline next to
+   the label. flex-shrink:0 so the icon stays a fixed square even
+   when the label wraps on very narrow tablets. */
+.app .ex-tag-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.app .ex-tag-good .ex-tag-mark {
+  background: rgba(20, 120, 40, 0.95);
+  color: #c4ffd6;
+}
+.app .ex-tag-bad .ex-tag-mark {
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+}
 
 
 /* =========================================================
   13.  TIP PILLS — full-width rows
    ========================================================= */
-/* tips-inline — plain inline text row, dot separators, no card chrome */
+/* tips-inline — line-icon + label row, dot separators, no card chrome.
+   Icons are monochrome inline SVGs in the brand gold so they sit
+   quieter than emoji and stay legible against the cream background.
+   Lives between the upload controls and the occasion picker, so the
+   strip is centered to read as a quiet helper rather than a heading. */
 .app .tips-inline {
   display: flex;
+  justify-content: center;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
   flex-wrap: wrap;
-  margin: 10px 0 20px;
+  margin: 16px var(--gutter-mobile) 4px;
 }
 .app .tip-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-family: var(--font-body);
-  font-size: 12px;
-  color: var(--text-muted);
+  font-size: 14px;
+  color: var(--text-main);
   white-space: nowrap;
 }
+.app .tip-icon {
+  width: 18px;
+  height: 18px;
+  color: var(--gold);
+  flex-shrink: 0;
+}
 .app .tip-sep {
-  color: rgba(201, 169, 110, 0.5);
-  font-size: 12px;
+  color: rgba(201, 169, 110, 0.55);
+  font-size: 14px;
 }
 
 
@@ -533,7 +645,7 @@
   height: 1px;
   background: var(--gold);
   opacity: 0.45;
-  margin: 32px var(--gutter-mobile);
+  margin: 10px var(--gutter-mobile);
 }
 
 
@@ -782,7 +894,13 @@
   color: var(--text-muted);
   letter-spacing: 0.2px;
 }
-.app .action-hint-spark { color: var(--gold); margin-right: 4px; }
+.app .action-hint-spark {
+  width: 19px;
+  height: 19px;
+  fill: var(--gold);
+  margin-right: 5px;
+  vertical-align: middle;
+}
 
 
 /* =========================================================
@@ -839,9 +957,16 @@
   }
   .app .layout-right { min-width: 0; }
 
-  /* fold heights on desktop are set globally (100vh + scroll-padding-top) */
+  /* fold heights on desktop are set globally (100vh + scroll-padding-top).
+     The grid container is 100vh tall but the implicit row is sized by
+     content, so the row sits at the top with empty space below.
+     align-content: center distributes that free space top & bottom so
+     the hero / "how it works" pair lives in the vertical middle of the
+     viewport. align-items still controls within-row alignment if items
+     ever differ in height. */
   .app .fold-1 {
-    align-items: center;                /* center hero + steps vertically */
+    align-content: center;
+    align-items: center;
     padding-top: 32px;
     padding-bottom: 32px;
   }
@@ -1204,7 +1329,13 @@
   text-transform: uppercase;
   margin-bottom: 12px;
 }
-.app .outfit-card-spark { color: var(--gold); margin-right: 4px; }
+.app .outfit-card-spark {
+  width: 19px;
+  height: 19px;
+  fill: var(--gold);
+  margin-right: 5px;
+  vertical-align: middle;
+}
 
 .app .outfit-card-type {
   font-family: var(--font-display);
@@ -1349,11 +1480,10 @@
   margin-bottom: 12px;
 }
 .app .odc-icon {
-  display: inline-block;
-  font-size: 16px;
-  color: var(--gold);
-  line-height: 1;
-  margin-right: 4px;
+  width: 20px;
+  height: 20px;
+  fill: var(--gold);
+  margin-right: 5px;
   vertical-align: middle;
 }
 .app .odc-main {
@@ -1432,9 +1562,10 @@
   padding: 24px;
 }
 .app .stylist-icon {
-  font-size: 20px;
-  color: var(--gold);
-  line-height: 1;
+  display: block;
+  width: 30px;
+  height: 30px;
+  fill: var(--gold);
 }
 .app .stylist-label {
   font-family: var(--font-body);
@@ -1841,43 +1972,80 @@
     min-height: auto;
     padding: 16px 20px 24px;
   }
-  .app .fold-2 { padding: 24px 0 100px; }
+  .app .fold-2 { padding: 16px 0 32px; }
 }
 
-/* fold-2 mobile — horizontal-scroll photo strip + tighter rhythm */
+/* fold-2 mobile — never-ending marquee strip. The seven .ex-card
+   children get cloned once by setupPhotoMarquee() in stylist.js
+   (clones marked aria-hidden so screen readers skip them), then the
+   14-card track is animated via translateX. Travel distance = N *
+   (card-w + gap) lands the first clone exactly where the first
+   original was, so the loop wraps without a visible jump. Manual
+   scroll is disabled — the animation is the only way the strip moves.
+   prefers-reduced-motion users get a static strip with manual
+   horizontal scroll restored, see below. */
 @media (max-width: 768px) {
   .app .photo-grid {
+    display: block;
+    overflow: hidden;
+    margin: 16px calc(var(--gutter-mobile) * -1) 0;
+    padding: 0 0 8px;
+  }
+  .app .photo-track {
     display: flex;
     flex-direction: row;
-    overflow-x: auto;
-    overflow-y: hidden;
-    scroll-snap-type: x mandatory;
-    scroll-padding-left: var(--gutter-mobile);
     gap: 10px;
-    margin: 16px calc(var(--gutter-mobile) * -1) 0;
-    padding: 0 var(--gutter-mobile) 8px;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
+    width: max-content;
+    padding-left: var(--gutter-mobile);
+    will-change: transform;
   }
-  .app .photo-grid::-webkit-scrollbar { display: none; }
+  /* Animation only fires after JS has appended the clones; the
+     [data-cloned="true"] flag is set by setupPhotoMarquee(). Without
+     this guard the original 7 cards would animate alone and the loop
+     would briefly show empty space before wrapping. */
+  .app .photo-track[data-cloned="true"] {
+    animation: photo-marquee 30s linear infinite;
+  }
 
   .app .ex-card {
     flex-shrink: 0;
     width: 140px;
-    scroll-snap-align: start;
   }
+  /* clones become visible only inside the marquee */
+  .app .ex-card[data-clone="true"] { display: block; }
   .app .ex-photo {
     width: 140px;
     aspect-ratio: 2 / 3;
   }
 
-  /* spacing inside fold 2 — title sits flush under the inline tips */
+  /* spacing inside fold 2 — give "Choose your photo" a little top
+     breathing room from the gold divider so the two sections read as
+     a related pair rather than a single cramped block */
   .app .upload-section .action-title {
     font-size: 18px;
     font-weight: 300;
-    margin: 0 0 14px;
+    margin: 8px 0 14px;
   }
   .app .occasion-section.is-visible { margin-top: 20px; }
+}
+
+/* Marquee travel = 7 cards * (140 + 10) = 1050px. The cloned 8th
+   card (= original card 1) lands exactly at the position the original
+   card 1 started, so the animation can restart from translateX(0)
+   with no visible jump. If you change card width, gap, or card count,
+   update this number to N * (card-w + gap). */
+@keyframes photo-marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-1050px); }
+}
+
+/* Respect prefers-reduced-motion. Drop the marquee, restore manual
+   horizontal scroll so the user can still reach every example. The
+   cloned cards remain in the DOM but are harmless (aria-hidden + tab
+   index removed in JS), they just add a bit of extra scroll length. */
+@media (max-width: 768px) and (prefers-reduced-motion: reduce) {
+  .app .photo-grid    { overflow-x: auto; overflow-y: hidden; }
+  .app .photo-track   { animation: none; }
 }
 
 /* mobile = two side-by-side Camera/Gallery buttons; desktop = single drop zone */
@@ -1910,7 +2078,6 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
   padding: 20px 12px;
   background: #ffffff;
   border: 1.5px solid rgba(201, 169, 110, 0.35);
@@ -1921,6 +2088,9 @@
 }
 .app .mob-upload-btn:hover { border-color: #C9A96E !important; }
 
+/* Explicit per-child spacing instead of a uniform flex gap — keeps a
+   comfortable icon → label distance while pulling the small "Take a
+   photo" / "Choose existing" sub-label tight under its label. */
 .app .mob-btn-icon-wrap {
   width: 48px; height: 48px;
   background: var(--cream);
@@ -1929,12 +2099,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-bottom: 10px;
 }
 
 .app .mob-btn-label {
   font-family: var(--font-body);
   font-size: 14px; font-weight: 500;
   color: var(--text-main);
+  margin-bottom: 2px;
 }
 .app .mob-btn-sub {
   font-family: var(--font-body);
@@ -1944,33 +2116,35 @@
 
 
 /* =========================================================
-  24.  SNAP SCROLL — html-level (must remain unscoped: <html>
-        is an ancestor of .app, not a descendant). Themes
-        don't interfere with snap behavior so this is safe.
+  24.  PAGE-LEVEL SCROLL BEHAVIOR
+       Snap-scrolling between Fold 1 and Fold 2 was retired
+       when the landing was split into two display:none-swapped
+       screens (#screen-intro / #screen-upload), so there's
+       nothing left to snap between. What remains is smooth
+       in-page scroll plus a scroll-padding offset so the WP
+       theme's sticky header doesn't cover anchored content.
+       <html> rules stay unscoped because <html> is an ancestor
+       of .app and themes don't fight us over these properties.
    ========================================================= */
 html {
-  scroll-snap-type: y mandatory;
   scroll-behavior: smooth;
   scroll-padding-top: var(--header-h);
 }
-/* Results screen is a long-scroll page, not a snapped fold —
-   JS adds .is-results to <html> when #screen-results is shown,
-   reload/back clears it naturally. Fixes Safari snap-back. */
-html.is-results {
-  scroll-snap-type: none;
-}
-.app .fold,
-.app #screen-loading,
-.app #screen-results {
-  scroll-snap-align: start;
-  min-height: 100vh;
-}
-@media (max-width: 1024px) {
-  html { scroll-snap-type: none; }
+
+/* Desktop: each top-level screen fills the viewport so intro,
+   upload, and loading feel like full pages — but the WP theme
+   injects a sticky nav header (~60px) and a promo banner (~40px)
+   above our content, so a true 100vh section bleeds below the
+   visible viewport and the vertically-centered hero ends up sitting
+   below the visible midline. Subtract a theme-offset token so the
+   screen fills only the area BELOW the theme chrome. Tune
+   --theme-offset if the theme's header or banner height changes. */
+:root { --theme-offset: 120px; }
+
+@media (min-width: 1025px) {
   .app .fold,
   .app #screen-loading,
   .app #screen-results {
-    min-height: auto;
-    scroll-snap-align: none;
+    min-height: calc(100vh - var(--theme-offset));
   }
 }

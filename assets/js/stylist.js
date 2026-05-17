@@ -12,9 +12,10 @@
 
   const $ = (id) => document.getElementById(id);
 
-  // hero CTA
+  // landing screens
+  const screenIntro   = $("screen-intro");
+  const screenUpload  = $("screen-upload");
   const ctaStyle      = $("ctaStyle");
-  const uploadSection = $("upload-section");
 
   // upload — desktop drop zone + mobile Camera/Gallery tiles
   const uploadZone           = $("uploadZone");
@@ -37,7 +38,6 @@
   const btnFindMatch     = $("btnFindMatch");
 
   // loading screen
-  const mainContent      = $("main-content");
   const screenLoading    = $("screen-loading");
   const outfitCard       = $("outfit-reading-card");
   const progressCard     = $("progress-card");
@@ -60,23 +60,59 @@
   showMoreBtn.addEventListener("click", showTier2);
 
   /* ---------------------------------------------------------
-     Browser back button → reset to the upload screen.
-     Only the results-screen swap pushes history state, so a
-     popstate always means "go back from results".
+     Screen state machine — four screens (intro, upload,
+     loading, results) shown one at a time via display:none.
+     Transitions are driven through showScreen(name, opts):
+
+       intro  → upload  : pushState   (user-initiated)
+       upload → loading : pushState   (Find My Match)
+       loading→ results : replaceState  (so back from results
+                            skips the now-stale loading state
+                            and lands on upload directly)
+
+     Browser back fires popstate; the new history entry's
+     state.screen tells us where to land. The very first page
+     load gets replaceState({screen:'intro'}) below so popstate
+     after a single back from upload sees state.screen='intro'
+     instead of null.
      --------------------------------------------------------- */
-  window.addEventListener("popstate", () => {
-    // stop any in-flight match-result polling so it can't fire after navigation
+  const SCREENS = {
+    intro:   screenIntro,
+    upload:  screenUpload,
+    loading: screenLoading,
+    results: screenResults,
+  };
+
+  function showScreen(name, opts) {
+    const histOp = (opts && opts.history) || "push";   // 'push' | 'replace' | 'none'
+
+    for (const key in SCREENS) {
+      const el = SCREENS[key];
+      if (el) el.style.display = (key === name) ? "" : "none";
+    }
+
+    if (histOp === "push")    history.pushState   ({ screen: name }, "");
+    if (histOp === "replace") history.replaceState({ screen: name }, "");
+
+    window.scrollTo(0, 0);
+  }
+
+  // Tag the initial page load so a single back from upload lands on
+  // intro with event.state.screen === 'intro' (instead of null).
+  history.replaceState({ screen: "intro" }, "");
+
+  window.addEventListener("popstate", (e) => {
+    // tear down any in-flight match-result polling and progress timers
+    // before swapping screens, so a back-during-loading doesn't leave
+    // a setInterval firing into a hidden DOM.
     if (pollIntervalId !== null) {
       clearInterval(pollIntervalId);
       pollIntervalId = null;
     }
-    // and any progress-bar / message animation timers
     stopProgressAnimation();
-    mainContent  .style.display = "";
-    screenResults.style.display = "none";
-    screenLoading.style.display = "none";
-    document.documentElement.classList.remove("is-results");
-    window.scrollTo(0, 0);
+
+    const target = (e.state && e.state.screen) || "intro";
+    showScreen(target, { history: "none" });
   });
 
   /* ---------------------------------------------------------
@@ -126,11 +162,53 @@
   });
 
   /* ---------------------------------------------------------
-     Hero CTA → smooth-scroll into the upload section
+     Hero CTA + step cards → advance to the upload screen.
+     Step cards carry role="button" tabindex="0" so they're
+     keyboard-reachable; Enter / Space both fire navigation
+     just like a real button would.
      --------------------------------------------------------- */
-  ctaStyle.addEventListener("click", () => {
-    uploadSection.scrollIntoView({ behavior: "smooth" });
+  ctaStyle.addEventListener("click", () => showScreen("upload"));
+
+  document.querySelectorAll('[data-action="goto-upload"]').forEach((el) => {
+    el.addEventListener("click", () => showScreen("upload"));
+    el.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        showScreen("upload");
+      }
+    });
   });
+
+  /* ---------------------------------------------------------
+     Photo guide marquee — clone the 7 example cards once so
+     the mobile CSS animation has a seamless 14-card track to
+     translate over. The 8th card (= clone of card 1) lands at
+     exactly the position the first original started, so the
+     keyframes can restart at translateX(0) without a jump.
+
+     The clones are flagged data-clone="true" + aria-hidden +
+     tabindex=-1 so screen readers and keyboard users skip them;
+     CSS hides them outside the mobile marquee context so they
+     don't break the tablet/desktop 2-col grid layout.
+
+     Skipped entirely under prefers-reduced-motion — the mobile
+     CSS in that case restores manual horizontal scroll, and
+     extra clones would just be redundant scroll length.
+     --------------------------------------------------------- */
+  (function setupPhotoMarquee() {
+    const track = document.querySelector(".photo-track");
+    if (!track || track.dataset.cloned === "true") return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    Array.from(track.children).forEach((card) => {
+      const clone = card.cloneNode(true);
+      clone.setAttribute("aria-hidden", "true");
+      clone.setAttribute("data-clone", "true");
+      clone.tabIndex = -1;
+      track.appendChild(clone);
+    });
+    track.dataset.cloned = "true";
+  })();
 
   /* ---------------------------------------------------------
      Upload — one input, one zone. Native picker handles
@@ -183,9 +261,25 @@
     occasionSection.classList.add("is-visible");
     occasionSection.setAttribute("aria-hidden", "false");
 
+    // Wait until the occasion-section's CSS transition (max-height 0 →
+    // 1200px over 550ms, see .occasion-section in section 17 of the
+    // stylesheet) has finished, THEN scroll the "Find My Match" button
+    // into view. The previous scrollIntoView({block:'nearest'}) ran
+    // mid-transition and Safari, seeing a still-collapsed section,
+    // computed a tiny scroll and stopped. We compute the target Y from
+    // the button's final position and use window.scrollTo, which has
+    // more consistent smooth-scroll support across browsers (Safari's
+    // element.scrollIntoView with behavior:smooth is unreliable on
+    // older iOS).
     setTimeout(() => {
-      occasionSection.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }, 180);
+      const findBtn = $("btnFindMatch");
+      if (!findBtn) return;
+      const rect    = findBtn.getBoundingClientRect();
+      const targetY = rect.bottom + window.scrollY - window.innerHeight + 40;
+      if (targetY > window.scrollY) {
+        window.scrollTo({ top: targetY, behavior: "smooth" });
+      }
+    }, 620);
   }
 
   // all three inputs share the same selection handler
@@ -326,10 +420,7 @@
   }
 
   async function findMatch() {
-    // swap to loading screen
-    mainContent  .style.display = "none";
-    screenLoading.style.display = "block";
-    window.scrollTo(0, 0);
+    showScreen("loading");
 
     setStepState("lstep-1", "active");
     setStepState("lstep-2", "pending");
@@ -417,10 +508,9 @@
           // brief pause so the user catches the green ✓ + the full bar
           setTimeout(() => {
             stopProgressAnimation();
-            screenLoading.style.display = "none";
-            screenResults.style.display = "block";
-            document.documentElement.classList.add("is-results");
-            history.pushState({ screen: "results" }, "");
+            // Replace (not push) so back from results lands on upload,
+            // not on the now-finished loading screen.
+            showScreen("results", { history: "replace" });
             showResults(data.result);
 
             // Phase 4 — land the user on the "Your Stylist Says" card on

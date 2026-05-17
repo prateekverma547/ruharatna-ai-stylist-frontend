@@ -14,8 +14,12 @@ get_header();
 ?>
 <div class="app">
 
-  <!-- ===================== MAIN : single continuous page ===================== -->
-  <main class="app-main" id="main-content">
+  <!-- =====================================================
+       SCREEN 1 : INTRO  (hero + "how it works" steps)
+       Visible on first load. The hero CTA and any step card
+       advance to #screen-upload via JS showScreen().
+       ===================================================== -->
+  <section id="screen-intro" class="screen-intro">
     <!-- ===================== FOLD 1 : Hero + How it works ===================== -->
     <div class="layout fold fold-1">
 
@@ -24,11 +28,21 @@ get_header();
         <section class="hero">
           <div class="hero-glow" aria-hidden="true"></div>
 
+          <!-- Service-status badge in the top-right of the hero card.
+               Positioned absolutely so it doesn't push the rest of the
+               hero content; pulse-dot + "LIVE" label reads as a live
+               indicator the way streaming services use it. -->
+          <div class="live-badge" aria-label="Service is live">
+            <span class="pulse-dot" aria-hidden="true"></span>
+            LIVE
+          </div>
+
           <div class="hero-inner">
             <span class="pill-badge">
-              <span class="pulse-dot" aria-hidden="true"></span>
-              <span class="pill-spark" aria-hidden="true">✦</span>
-              AI Stylist : Now Live
+              <svg class="pill-spark" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M9 1 L10.5 8.5 L17 10 L10.5 11.5 L9 19 L7.5 11.5 L1 10 L7.5 8.5 Z M18 14 L18.7 17.3 L22 18 L18.7 18.7 L18 22 L17.3 18.7 L14 18 L17.3 17.3 Z"/>
+              </svg>
+              AI Stylist
             </span>
 
             <h1 class="hero-title">
@@ -55,7 +69,7 @@ get_header();
             <h2 class="section-title">3 steps to your perfect match</h2>
 
             <div class="steps">
-              <article class="step-card">
+              <article class="step-card" role="button" tabindex="0" data-action="goto-upload">
                 <div class="step-num">1</div>
                 <div class="step-body">
                   <h4 class="step-title">Upload your outfit</h4>
@@ -63,7 +77,7 @@ get_header();
                 </div>
               </article>
 
-              <article class="step-card">
+              <article class="step-card" role="button" tabindex="0" data-action="goto-upload">
                 <div class="step-num">2</div>
                 <div class="step-body">
                   <h4 class="step-title">Tell us the occasion</h4>
@@ -71,7 +85,7 @@ get_header();
                 </div>
               </article>
 
-              <article class="step-card">
+              <article class="step-card" role="button" tabindex="0" data-action="goto-upload">
                 <div class="step-num">3</div>
                 <div class="step-body">
                   <h4 class="step-title">Get your styled match</h4>
@@ -89,6 +103,15 @@ get_header();
       </div>
     </div>
 
+  </section>
+
+  <!-- =====================================================
+       SCREEN 2 : UPLOAD  (photo guide + Camera / Gallery /
+       drop zone + occasion chips + "Find My Match").
+       Hidden on first load; revealed by showScreen('upload')
+       when the user clicks "Style My Outfit" or any step card.
+       ===================================================== -->
+  <section id="screen-upload" class="screen-upload" style="display:none">
     <!-- ===================== FOLD 2 : Show outfit + Choose photo ===================== -->
     <div class="layout fold fold-2">
 
@@ -97,90 +120,83 @@ get_header();
         <section class="guidance">
           <h2 class="guidance-title">Show us your outfit</h2>
           <p class="guidance-sub">
-            Our AI reads your outfit best when the full look is clearly visible.
+            Our AI works best with a clear full-body photo.
           </p>
 
           <div class="photo-grid" role="list">
+            <div class="photo-track">
 
-            <!-- Card 1 -->
+            <!-- Good 1 -->
             <div class="ex-card" role="listitem">
-              <div class="ex-photo" style="background:#f5ede0;">
-                <span class="ex-badge ex-badge-good">✓ PERFECT</span>
-                <div class="ex-placeholder">
-                  <svg class="ex-cam" width="24" height="24" viewBox="0 0 24 24"
-                       fill="none" stroke="currentColor" stroke-width="1.5"
-                       stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M3 7h3l1.5-2.5h9L18 7h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z"/>
-                    <circle cx="12" cy="13" r="4"/>
-                  </svg>
-                  <span class="ex-placeholder-title">Mirror selfie</span>
-                  <span class="ex-placeholder-sub">Full outfit visible</span>
-                </div>
-                <span class="ex-tag">Green Saree · Wedding</span>
+              <div class="ex-photo">
+                <img class="ex-img"
+                     src="<?php echo esc_url(plugins_url('images/good-1.webp', dirname(__FILE__))); ?>"
+                     alt="Example outfit photo">
+                <span class="ex-tag ex-tag-good"><span class="ex-tag-mark" aria-label="Good example">✓</span>Mirror selfie</span>
               </div>
             </div>
 
-            <!-- Card 2 -->
+            <!-- Good 2 -->
             <div class="ex-card" role="listitem">
-              <div class="ex-photo" style="background:#ede0f0;">
-                <span class="ex-badge ex-badge-good">✓ PERFECT</span>
-                <div class="ex-placeholder">
-                  <svg class="ex-cam" width="24" height="24" viewBox="0 0 24 24"
-                       fill="none" stroke="currentColor" stroke-width="1.5"
-                       stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M3 7h3l1.5-2.5h9L18 7h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z"/>
-                    <circle cx="12" cy="13" r="4"/>
-                  </svg>
-                  <span class="ex-placeholder-title">Mirror selfie</span>
-                  <span class="ex-placeholder-sub">Neckline visible</span>
-                </div>
-                <span class="ex-tag">White Kurta · Festive</span>
+              <div class="ex-photo">
+                <img class="ex-img"
+                     src="<?php echo esc_url(plugins_url('images/good-2.webp', dirname(__FILE__))); ?>"
+                     alt="Example outfit photo">
+                <span class="ex-tag ex-tag-good"><span class="ex-tag-mark" aria-label="Good example">✓</span>Flat lay</span>
               </div>
             </div>
 
-            <!-- Card 3 -->
+            <!-- Good 3 -->
             <div class="ex-card" role="listitem">
-              <div class="ex-photo" style="background:#e0edf0;">
-                <span class="ex-badge ex-badge-good">✓ PERFECT</span>
-                <div class="ex-placeholder">
-                  <svg class="ex-cam" width="24" height="24" viewBox="0 0 24 24"
-                       fill="none" stroke="currentColor" stroke-width="1.5"
-                       stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M3 7h3l1.5-2.5h9L18 7h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z"/>
-                    <circle cx="12" cy="13" r="4"/>
-                  </svg>
-                  <span class="ex-placeholder-title">Mirror selfie</span>
-                  <span class="ex-placeholder-sub">Works for weddings</span>
-                </div>
-                <span class="ex-tag">Blue Lehenga · Wedding</span>
+              <div class="ex-photo">
+                <img class="ex-img"
+                     src="<?php echo esc_url(plugins_url('images/good-3.webp', dirname(__FILE__))); ?>"
+                     alt="Example outfit photo">
+                <span class="ex-tag ex-tag-good"><span class="ex-tag-mark" aria-label="Good example">✓</span>Mirror selfie</span>
               </div>
             </div>
 
-            <!-- Card 4 : avoid -->
+            <!-- Good 4 -->
             <div class="ex-card" role="listitem">
-              <div class="ex-photo ex-photo-dark" style="background:#2a2018;">
-                <span class="ex-badge ex-badge-bad">✗ AVOID</span>
-                <div class="ex-placeholder ex-placeholder-bad">
-                  <svg class="ex-cam ex-cam-bad" width="28" height="28" viewBox="0 0 48 48" fill="none">
-                    <circle cx="24" cy="24" r="21" stroke="#ff8d8d" stroke-width="2"/>
-                    <line x1="14" y1="14" x2="34" y2="34" stroke="#ff8d8d" stroke-width="2.5" stroke-linecap="round"/>
-                    <line x1="34" y1="14" x2="14" y2="34" stroke="#ff8d8d" stroke-width="2.5" stroke-linecap="round"/>
-                  </svg>
-                  <span class="ex-placeholder-title ex-placeholder-title-bad">Poor lighting</span>
-                  <span class="ex-placeholder-sub ex-placeholder-sub-bad">AI can't read colours</span>
-                </div>
-                <span class="ex-tag ex-tag-bad">Too dark · Avoid</span>
+              <div class="ex-photo">
+                <img class="ex-img"
+                     src="<?php echo esc_url(plugins_url('images/good-4.webp', dirname(__FILE__))); ?>"
+                     alt="Example outfit photo">
+                <span class="ex-tag ex-tag-good"><span class="ex-tag-mark" aria-label="Good example">✓</span>Full body</span>
               </div>
             </div>
 
-          </div>
+            <!-- Bad 1 -->
+            <div class="ex-card" role="listitem">
+              <div class="ex-photo ex-photo-dark">
+                <img class="ex-img"
+                     src="<?php echo esc_url(plugins_url('images/bad-1.webp', dirname(__FILE__))); ?>"
+                     alt="Example outfit photo">
+                <span class="ex-tag ex-tag-bad"><span class="ex-tag-mark" aria-label="Avoid">✗</span>Too dark</span>
+              </div>
+            </div>
 
-          <div class="tips-inline">
-            <span class="tip-inline">☀️ Natural light</span>
-            <span class="tip-sep" aria-hidden="true">·</span>
-            <span class="tip-inline">👗 Full outfit</span>
-            <span class="tip-sep" aria-hidden="true">·</span>
-            <span class="tip-inline">🚫 No filters</span>
+            <!-- Bad 2 -->
+            <div class="ex-card" role="listitem">
+              <div class="ex-photo ex-photo-dark">
+                <img class="ex-img"
+                     src="<?php echo esc_url(plugins_url('images/bad-2.webp', dirname(__FILE__))); ?>"
+                     alt="Example outfit photo">
+                <span class="ex-tag ex-tag-bad"><span class="ex-tag-mark" aria-label="Avoid">✗</span>Face only</span>
+              </div>
+            </div>
+
+            <!-- Bad 3 -->
+            <div class="ex-card" role="listitem">
+              <div class="ex-photo ex-photo-dark">
+                <img class="ex-img"
+                     src="<?php echo esc_url(plugins_url('images/bad-3.webp', dirname(__FILE__))); ?>"
+                     alt="Example outfit photo">
+                <span class="ex-tag ex-tag-bad"><span class="ex-tag-mark" aria-label="Avoid">✗</span>Group photo</span>
+              </div>
+            </div>
+
+            </div><!-- /.photo-track -->
           </div>
         </section>
       </div>
@@ -257,6 +273,41 @@ get_header();
           </div>
         </section>
 
+        <!-- TIPS — photo-quality reminders. Sit between the upload
+             controls and the occasion picker so they're visible while
+             the user is choosing a photo and after they've picked one. -->
+        <div class="tips-inline">
+          <span class="tip-inline">
+            <svg class="tip-icon" aria-hidden="true" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="1.6"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="4"/>
+              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+            </svg>
+            Natural light
+          </span>
+          <span class="tip-sep" aria-hidden="true">·</span>
+          <span class="tip-inline">
+            <svg class="tip-icon" aria-hidden="true" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="1.6"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 4l-5 3 2 4 3-1v10h10V10l3 1 2-4-5-3"/>
+              <path d="M9 4a3 3 0 0 0 6 0"/>
+            </svg>
+            Full outfit
+          </span>
+          <span class="tip-sep" aria-hidden="true">·</span>
+          <span class="tip-inline">
+            <svg class="tip-icon" aria-hidden="true" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="1.6"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="9"/>
+              <line x1="5.5" y1="5.5" x2="18.5" y2="18.5"/>
+            </svg>
+            No filters
+          </span>
+        </div>
+
         <!-- OCCASION (revealed after photo selected) -->
         <section class="occasion-section" id="occasionSection" aria-hidden="true">
           <h3 class="action-title-sm">What's the occasion?</h3>
@@ -290,7 +341,7 @@ get_header();
             Find My Match <span class="btn-arrow">→</span>
           </button>
           <p class="action-hint">
-            <span class="action-hint-spark">✦</span>
+            <svg class="action-hint-spark" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 1 L10.5 8.5 L17 10 L10.5 11.5 L9 19 L7.5 11.5 L1 10 L7.5 8.5 Z M18 14 L18.7 17.3 L22 18 L18.7 18.7 L18 22 L17.3 18.7 L14 18 L17.3 17.3 Z"/></svg>
             AI analyses your outfit in ~6 seconds
           </p>
         </section>
@@ -298,7 +349,7 @@ get_header();
       </div>
 
     </div>
-  </main>
+  </section>
 
   <!-- =====================================================
        SCREEN 3 : LOADING / ANALYSING
@@ -337,7 +388,7 @@ get_header();
         <!-- Phase 1 placeholder -->
         <div id="outfit-reading-placeholder" class="outfit-card is-visible">
           <div class="outfit-card-label">
-            <span class="outfit-card-spark">✦</span> Analysing your photo
+            <svg class="outfit-card-spark" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 1 L10.5 8.5 L17 10 L10.5 11.5 L9 19 L7.5 11.5 L1 10 L7.5 8.5 Z M18 14 L18.7 17.3 L22 18 L18.7 18.7 L18 22 L17.3 18.7 L14 18 L17.3 17.3 Z"/></svg> Analysing your photo
           </div>
 
           <div class="skeleton-line wide"></div>
@@ -363,7 +414,7 @@ get_header();
         <!-- Phase 2 : real outfit card — same design as results-screen .outfit-detail-card,
              with the bouncing-dot loader in place of the "Try another outfit" button -->
         <div id="outfit-reading-card" class="outfit-detail-card outfit-card" hidden>
-          <div class="odc-label"><span class="odc-icon">✦</span> YOUR OUTFIT</div>
+          <div class="odc-label"><svg class="odc-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 1 L10.5 8.5 L17 10 L10.5 11.5 L9 19 L7.5 11.5 L1 10 L7.5 8.5 Z M18 14 L18.7 17.3 L22 18 L18.7 18.7 L18 22 L17.3 18.7 L14 18 L17.3 17.3 Z"/></svg> YOUR OUTFIT</div>
 
           <div class="odc-main">
             <span id="load-odc-colour" class="odc-colour-dot" aria-hidden="true"></span>
@@ -418,7 +469,7 @@ get_header();
       <!-- LEFT (sticky on desktop): AI voice : Stylist Says + Complete Look -->
       <div class="results-left">
         <div class="stylist-card">
-          <div class="stylist-icon">✦</div>
+          <svg class="stylist-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 1 L10.5 8.5 L17 10 L10.5 11.5 L9 19 L7.5 11.5 L1 10 L7.5 8.5 Z M18 14 L18.7 17.3 L22 18 L18.7 18.7 L18 22 L17.3 18.7 L14 18 L17.3 17.3 Z"/></svg>
           <div class="stylist-label">YOUR STYLIST SAYS</div>
           <div class="stylist-text" id="stylist-reading-text"></div>
         </div>
@@ -437,7 +488,7 @@ get_header();
 
         <!-- outfit detail card : full card at top of right column -->
         <div class="outfit-detail-card">
-          <div class="odc-label"><span class="odc-icon">✦</span> YOUR OUTFIT</div>
+          <div class="odc-label"><svg class="odc-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 1 L10.5 8.5 L17 10 L10.5 11.5 L9 19 L7.5 11.5 L1 10 L7.5 8.5 Z M18 14 L18.7 17.3 L22 18 L18.7 18.7 L18 22 L17.3 18.7 L14 18 L17.3 17.3 Z"/></svg> YOUR OUTFIT</div>
 
           <div class="odc-main">
             <span id="odc-colour" class="odc-colour-dot" aria-hidden="true"></span>

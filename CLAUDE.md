@@ -26,6 +26,7 @@ ruhratna-ai-stylist/                  (this folder; checked out as ruhratna-styl
 │   ├── css/stylist.css               # brand stylesheet, every rule scoped under .app
 │   ├── js/stylist.js                 # single IIFE, state machine + REST calls
 │   └── fonts/                        # placeholder (fonts load from ruhratna.com)
+├── images/                           # photo-guide examples: good-1..4.webp + bad-1..3.webp
 ├── .gitignore
 └── CLAUDE.md
 ```
@@ -103,20 +104,46 @@ WordPress REST stack handles content negotiation and status codes.
 
 ## Screen flow (frontend)
 
-Single-page state machine, routed through the REST proxy:
+Four-screen state machine, all four siblings under `.app`, routed
+through the REST proxy:
 
 ```
 .app                                ← single wrapper (every CSS rule scoped under this)
-├── #main-content                   ← landing (Fold 1 hero + Fold 2 upload)
-├── #screen-loading                 ← shown while /analyse + /match are in flight
-└── #screen-results                 ← shown after /match returns
+├── #screen-intro                   ← hero + "how it works" steps (visible on load)
+├── #screen-upload                  ← photo guide + Camera/Gallery + occasion chips
+├── #screen-loading                 ← shown while /analyse + /match + /result are in flight
+└── #screen-results                 ← shown after /result returns "done"
 ```
 
-JS swaps which top-level section is visible via `style.display`.
+A single `showScreen(name, { history })` function in
+[assets/js/stylist.js](assets/js/stylist.js) is the only place that
+flips visibility — it iterates the `SCREENS` map, toggles each via
+`style.display`, and optionally pushes / replaces a history entry.
 
-- **Style My Outfit →** smooth-scrolls to `#upload-section`
+**History stack & back-button cascade.** On page load JS calls
+`history.replaceState({ screen: 'intro' }, '')` so the initial entry is
+tagged — without this, a single back from upload would fire popstate
+with `event.state === null` and we'd lose the target. Transitions then
+go:
+
+| From → To | `showScreen` call |
+|---|---|
+| intro → upload  | `showScreen('upload')`                    (pushState) |
+| upload → loading | `showScreen('loading')`                   (pushState) |
+| loading → results | `showScreen('results', { history: 'replace' })` (replaceState — replaces the loading entry so back from results skips straight to upload) |
+
+The popstate handler reads `event.state.screen`, tears down any
+in-flight `pollIntervalId` + progress timers via
+`stopProgressAnimation()`, then calls `showScreen(target, { history:
+'none' })`. End result: back goes results → upload → intro → off-page,
+which mirrors how the user got in.
+
+- **Style My Outfit →** advances intro → upload via `showScreen`.
+- **Step cards** (`[data-action="goto-upload"]`, `role="button"
+  tabindex="0"`) also advance to upload — same handler, plus an
+  Enter/Space keydown listener for keyboard parity.
 - **Find My Match →** validates a photo + occasion are picked, then
-  `findMatch()` swaps to `#screen-loading` and runs three sequential
+  `findMatch()` calls `showScreen('loading')` and runs three sequential
   REST calls:
   1. `POST /analyse` → returns `outfit_analysis` synchronously. JS marks
      step 1 done, paints the right-column outfit card, and on mobile
@@ -136,10 +163,6 @@ JS swaps which top-level section is visible via `style.display`.
   and `progressFadeTimeoutId` are kept in module scope so `popstate` and
   the error handler can cancel them; `stopProgressAnimation()` is the
   single shutdown point.
-- On `#screen-results` show, JS adds `is-results` to `<html>` (kills
-  snap-scroll for the long-scroll results page) and pushes a history
-  entry. Browser back fires `popstate` which restores `#main-content`,
-  clears the `is-results` class, and cancels any in-flight polling.
 - Mobile-only `scrollToEl(el, offset)` no-ops above 1024 px (the desktop
   sticky-left layout already keeps everything in view). Used at the
   Phase 2 outfit-card reveal and the Phase 4 "Your Stylist Says" reveal
@@ -212,6 +235,34 @@ first). The handler:
 `target="_blank"` is removed from cart anchors entirely so a JS failure
 falls back to same-tab navigation, not a new tab.
 
+## Photo guide (Show us your outfit)
+
+Seven example `.ex-card`s live in the left column of `#screen-upload` —
+four "good" examples (`images/good-1.webp` … `good-4.webp`) and three
+"avoid" examples (`images/bad-1.webp` … `bad-3.webp`). Each renders a
+real `<img>` via `plugins_url('images/<file>', dirname(__FILE__))` and
+carries a bottom `.ex-tag` band with an inline ✓/✗ `.ex-tag-mark` chip
+plus a one-word label ("Mirror selfie", "Too dark", etc.). The old
+top-left `.ex-badge` corner indicators were removed — verdict + label
+now read as a single phrase at the bottom of each card.
+
+On mobile the grid becomes a **never-ending marquee**: `setupPhotoMarquee()`
+in [assets/js/stylist.js](assets/js/stylist.js) clones the 7 cards once
+(marked `data-clone="true" aria-hidden="true" tabindex="-1"`) and sets
+`data-cloned="true"` on the `.photo-track` wrapper. The CSS animation
+is gated on that attribute so the keyframes can't fire until the
+duplicate set exists, otherwise the loop would briefly show empty
+space before wrapping. Travel distance = `7 × (140 + 10) = 1050px`,
+which is exactly card-1's start position offset — so `translateX(0)
+→ translateX(-1050px)` over 30s loops seamlessly. `.photo-track` uses
+`display: contents` on tablet/desktop so the 2-col grid still sees
+the cards directly (the wrapper is layout-transparent above 768px);
+the cloned siblings are hidden everywhere except mobile via
+`.ex-card[data-clone="true"] { display: none }`. Under
+`prefers-reduced-motion: reduce`, JS skips cloning entirely and the
+CSS restores `overflow-x: auto` so the user can swipe through all 7
+examples manually.
+
 ## Brand tokens
 
 Defined once in `:root` at the top of
@@ -234,6 +285,12 @@ Defined once in `:root` at the top of
 
 --header-h:        56px       (kept for scroll-padding offset against
                                theme's sticky nav — do not remove)
+--theme-offset:    120px      (WP theme sticky-header + promo-banner
+                               combined height; subtracted from screen
+                               min-height on desktop so the vertically-
+                               centered hero lands on the *visible*
+                               midline, not below it. Retune if the
+                               theme's chrome changes.)
 --content-max:     1200px
 --tablet-max:      680px
 --gutter-mobile:   24px
@@ -265,23 +322,28 @@ Mobile-first base styles, then three breakpoints:
 |---|---|
 | `< 768px` mobile | Single-column. Hero is a rounded dark card. Photo grid is a horizontal-scroll strip that bleeds to screen edge via negative margin matching `.fold-2`'s removed padding. Camera + Gallery shown as two `.mob-upload-btn` tiles. Tips inline. |
 | `≥ 768px` tablet | Single column capped at `--tablet-max: 680px`. Hero is a card. Upload zone replaces the mobile tiles. Photo grid becomes a 2-col grid. |
-| `≥ 1024px` desktop | Two-column `.fold` grid (45fr / 55fr) for landing, snap-scrolling between Fold 1 and Fold 2. Results screen uses a separate flex layout (45% / 55%, sticky left column). |
+| `≥ 1024px` desktop | Two-column `.fold` grid (45fr / 55fr) inside each landing screen — `#screen-intro` wraps `.fold-1` (hero left, "how it works" right) and `#screen-upload` wraps `.fold-2` (photo guide left, upload zone right). Each fold fills the area below the WP theme chrome via `min-height: calc(100vh - var(--theme-offset))`; `.fold-1` also uses `align-content: center` so its grid row sits at the vertical midline of that available space. Results screen uses a separate flex layout (45% / 55%, sticky left column). |
 | `≥ 1280px` wide | More breathing room (larger gap, taller padding). |
 
-Snap scroll lives in section 24 of the stylesheet on `html` (the only
-unscoped rules — `<html>` is an ancestor of `.app` so we can't move
-them inward). `html.is-results { scroll-snap-type: none }` disables
-snap on the long-scroll results page. Disabled entirely on tablet/
-mobile via `@media (max-width: 1024px) { html { scroll-snap-type: none
-} }`.
+Section 24 of the stylesheet holds the remaining unscoped `<html>`
+rules — `scroll-behavior: smooth` and `scroll-padding-top: var(--header-h)`
+(so the WP theme's sticky header doesn't cover anchored content). The
+old fold-1 ↔ fold-2 snap-scroll mechanism was retired when the landing
+was split into `#screen-intro` and `#screen-upload`: with only one
+screen visible at a time there's nothing left to snap between, so the
+`scroll-snap-*` declarations and the `is-results` class that gated them
+have all been removed. The `min-height: 100vh` on each top-level screen
+moved into a desktop-only `@media (min-width: 1025px)` block in the
+same section.
 
 ## Conventions
 
 - **No build, no framework.** Anything added stays hand-rolled.
 - **Mobile-first CSS.** Base rules describe mobile; tablet/desktop are
   media-query overrides.
-- **Every CSS rule scoped to `.app`** except the three intentional
-  exceptions (`:root`, `@font-face`, `@keyframes`, `html` snap-scroll).
+- **Every CSS rule scoped to `.app`** except the intentional exceptions:
+  `:root`, `@font-face`, `@keyframes`, and the two `<html>`-level
+  scroll rules in section 24 (`scroll-behavior`, `scroll-padding-top`).
 - **All JS lives in one IIFE** in
   [assets/js/stylist.js](assets/js/stylist.js). Closures hold app state
   (`selectedFile`, `selectedOccasion`, `outfitAnalysis`).
@@ -297,6 +359,15 @@ mobile via `@media (max-width: 1024px) { html { scroll-snap-type: none
   `define()` whenever CSS or JS changes. Both are wired to `?ver=`.
 - **Inline `onclick="location.reload()"`** is used on the "↺ Try
   another outfit" button — no extra wiring needed.
+- **Brand sparkle = inline SVG, not a glyph.** The "✦" four-point
+  star icon (used in the pill-badge, action hint, outfit-card label,
+  outfit-detail label ×2, and stylist-card header) is rendered as a
+  shared inline `<svg viewBox="0 0 24 24">` with a sparkles-cluster
+  path. All six instances share the same path string so a single
+  edit propagates everywhere. Sized in px (`width`/`height`) per
+  class, filled with `var(--gold)`. The previous ✦ unicode glyph
+  rendered noticeably smaller in Safari due to system-font fallback;
+  the SVG is font-independent and identical across browsers.
 
 ## Gotchas
 
