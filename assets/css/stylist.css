@@ -945,20 +945,27 @@
 .app .loading-left  { padding: 32px var(--gutter-mobile) 16px; }
 .app .loading-right { padding: 0 var(--gutter-mobile) 32px; }
 
-/* ---------- 21a. Loading orb ---------- */
-.app .loading-orb {
+/* ---------- 21a. Loading header — large centered orb above title (default / desktop) ---------- */
+.app .loading-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 0;
+}
+
+.app .loading-icon {
   position: relative;
+  flex-shrink: 0;
   width: 120px; height: 120px;
   border-radius: 50%;
   background: linear-gradient(135deg, #E8D5B0 0%, #C9A96E 50%, #A07840 100%);
   box-shadow: 0 0 40px rgba(201, 169, 110, 0.40);
   display: flex; align-items: center; justify-content: center;
   font-size: 48px;
-  margin: 0 auto;                      /* centered on mobile */
   animation: breathe 2s ease-in-out infinite;
 }
-.app .loading-orb::before {
-  /* inner rotating ring */
+.app .loading-icon::before {
   content: "";
   position: absolute; inset: 8px;
   border-radius: 50%;
@@ -967,21 +974,19 @@
   border-right-color: rgba(255, 255, 255, 0.30);
   animation: ring-spin 2.4s linear infinite;
 }
-.app .loading-orb-icon {
+.app .loading-icon-spark {
   position: relative;
   z-index: 1;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.18));
+  line-height: 1;
 }
 
 @keyframes breathe {
-  0%, 100% { transform: scale(1);    box-shadow: 0 0 40px rgba(201, 169, 110, 0.30); }
-  50%      { transform: scale(1.06); box-shadow: 0 0 60px rgba(201, 169, 110, 0.60); }
-}
-@keyframes ring-spin {
-  to { transform: rotate(360deg); }
+  0%, 100% { transform: scale(1);    box-shadow: 0 0 24px rgba(201, 169, 110, 0.30); }
+  50%      { transform: scale(1.06); box-shadow: 0 0 36px rgba(201, 169, 110, 0.60); }
 }
 
-/* ---------- 21b. Title + subtitle ---------- */
+/* ---------- 21b. Title + subtitle (default / desktop) ---------- */
 .app .loading-title {
   font-family: var(--font-display);
   font-weight: 300;
@@ -989,8 +994,8 @@
   line-height: 1.25;
   color: var(--text-main);
   margin: 24px 0 0;
-  text-align: center;
   letter-spacing: -0.3px;
+  text-align: center;
 }
 .app .loading-subtitle {
   font-family: var(--font-body); font-weight: 400;
@@ -1001,11 +1006,74 @@
   text-align: center;
 }
 
+/* ---------- 21b-mobile. Compact inline flex row on mobile/tablet ----------
+   Below 1024px the orb shrinks to a 40px circle and sits to the left of
+   the title; the subtitle drops to its own line below, full width and
+   left aligned with no extra indentation. */
+@media (max-width: 1023px) {
+  .app .loading-header {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .app .loading-icon {
+    width: 56px; height: 56px;
+    font-size: 28px;
+    box-shadow: 0 0 24px rgba(201, 169, 110, 0.40);
+  }
+  .app .loading-icon::before { display: none; }
+
+  .app .loading-title {
+    font-size: 24px;
+    margin: 0;
+    text-align: left;
+  }
+  .app .loading-subtitle {
+    display: block;
+    max-width: none;
+    width: 100%;
+    margin: 0 0 8px;
+    padding: 0;
+    text-align: left;
+  }
+}
+
 /* ---------- 21c. Step indicators ---------- */
 .app .loading-steps {
   margin-top: 32px;
   display: flex; flex-direction: column;
   gap: 10px;
+}
+
+/* ---------- 21c-bis. Progress bar + rotating status message ----------
+   JS drives bar width via inline style (0% → 95% over 80s, then 100%
+   on done). The CSS here just defines the chrome. */
+.app .loading-progress {
+  width: 100%;
+  height: 4px;
+  background: #f0ebe3;
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 24px;
+}
+.app .loading-progress-bar {
+  width: 0%;
+  height: 100%;
+  background: #C9A96E;
+  border-radius: 2px;
+  /* the timing function is set by JS to match each phase
+     (80s linear ramp, then 0.4s ease to 100%) */
+}
+.app .loading-progress-message {
+  text-align: center;
+  color: #8B7355;
+  font-size: 14px;
+  font-style: italic;
+  margin: 16px 0 0;
+  min-height: 1.4em;          /* reserve a row so layout doesn't jump */
+  opacity: 1;
+  transition: opacity 0.2s ease;
 }
 
 .app .lstep {
@@ -1194,6 +1262,21 @@
   30%           { transform: translateY(-8px); }
 }
 
+/* ---------- 21f. Progress card — bar + rotating message ----------
+   Sits below the outfit card in the right column. JS removes [hidden]
+   when /match polling starts; the existing .loading-progress and
+   .loading-progress-message rules carry over unchanged. */
+.app .progress-card {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-top: 16px;
+}
+.app .progress-card[hidden] { display: none; }
+.app .progress-card .loading-progress         { margin-top: 0; }
+.app .progress-card .loading-progress-message { margin-top: 10px; }
+
 /* ---------- 21e. Loading screen — tablet & desktop ---------- */
 @media (min-width: 768px) {
   .app .loading-left,
@@ -1206,18 +1289,12 @@
   .app .loading-left,
   .app .loading-right { padding: 0; }
 
-  /* on desktop the orb + copy align left within the column */
-  .app .loading-orb { margin: 0; }
-  .app .loading-title,
-  .app .loading-subtitle {
-    text-align: left;
-    margin-left: 0;
-    margin-right: 0;
-  }
-  .app .loading-subtitle { max-width: 360px; }
-
   .app .outfit-card-type    { font-size: 36px; }
   .app .outfit-card-message { font-size: 13px; }
+}
+
+@keyframes ring-spin {
+  to { transform: rotate(360deg); }
 }
 
 

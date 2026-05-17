@@ -307,16 +307,14 @@ get_header();
   <section id="screen-loading" class="loading-screen" style="display:none">
     <div class="layout">
 
-      <!-- LEFT: animated orb + step indicators -->
+      <!-- LEFT: header (icon + title) + step indicators -->
       <div class="layout-left loading-left">
-        <div class="loading-orb" aria-hidden="true">
-          <span class="loading-orb-icon">✨</span>
+        <div class="loading-header">
+          <div class="loading-icon" aria-hidden="true">
+            <span class="loading-icon-spark">✨</span>
+          </div>
+          <h2 class="loading-title">Our stylist is at work</h2>
         </div>
-
-        <h2 class="loading-title">Our stylist is at work</h2>
-        <p class="loading-subtitle">
-          Analysing your outfit and finding jewellery that truly matches.
-        </p>
 
         <div class="loading-steps">
           <div class="lstep" id="lstep-1" data-state="active">
@@ -394,16 +392,16 @@ get_header();
               <span class="odc-chip-value" id="load-odc-accents"></span>
             </div>
           </div>
+        </div>
 
-          <div class="outfit-card-message">
-            Now finding jewellery that complements this perfectly...
+        <!-- Progress card — revealed by JS when /match polling starts.
+             Sits below the outfit card; holds the progress bar + the
+             rotating status messages that used to live in the left column. -->
+        <div class="progress-card" id="progress-card" hidden>
+          <div class="loading-progress" aria-hidden="true">
+            <div class="loading-progress-bar" id="loading-progress-bar"></div>
           </div>
-
-          <div class="outfit-card-loader" aria-hidden="true">
-            <span class="dot"></span>
-            <span class="dot"></span>
-            <span class="dot"></span>
-          </div>
+          <p class="loading-progress-message" id="loading-progress-message" aria-live="polite"></p>
         </div>
       </div>
 

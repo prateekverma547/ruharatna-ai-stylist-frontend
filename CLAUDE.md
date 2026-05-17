@@ -75,22 +75,28 @@ browsers refetch.
 ## REST proxy
 
 ```php
-const RUHRATNA_TINIFY_KEY  = '...';
-const RUHRATNA_RAILWAY_URL = 'https://web-production-8b1fc.up.railway.app';
+const RUHRATNA_TINIFY_KEY    = '...';
+const RUHRATNA_RAILWAY_URL   = 'https://web-production-8b1fc.up.railway.app';
+define('RUHRATNA_SKIP_TINIFY', true);   // bypass TinyPNG entirely
 ```
 
-Both endpoints are public (`permission_callback => '__return_true'`)
+All three endpoints are public (`permission_callback => '__return_true'`)
 because they need to work for unauthenticated visitors.
 
 | Route | Body | Flow |
 |---|---|---|
-| `POST /wp-json/ruhratna-stylist/v1/analyse` | `{ image: <base64>, occasion }` | base64 → TinyPNG → re-encode → Railway `/analyse` |
-| `POST /wp-json/ruhratna-stylist/v1/match`   | `{ outfit_analysis, occasion }` | Forward as-is to Railway `/match` |
+| `POST /wp-json/ruhratna-stylist/v1/analyse`       | `{ image: <base64>, occasion }` | base64 → (TinyPNG, optional) → re-encode → Railway `/analyse` → returns `outfit_analysis` synchronously |
+| `POST /wp-json/ruhratna-stylist/v1/match`         | `{ outfit_analysis, occasion }` | Forward to Railway `/match` → returns `{ job_id }` **immediately** (async) |
+| `GET  /wp-json/ruhratna-stylist/v1/result/<job_id>` | — | Forward to Railway `/result/<job_id>` → returns `{ status: "running" }`, `{ status: "done", result }`, or `{ status: "error", message }` |
 
-TinyPNG compression: POST raw bytes to `api.tinify.com/shrink` with
-`Authorization: Basic base64('api:KEY')`, read the `Location` header,
-GET the compressed bytes with the same auth. Status codes and errors
-propagate back to the JS as `WP_Error` with a 502.
+TinyPNG compression (when not skipped): POST raw bytes to
+`api.tinify.com/shrink` with `Authorization: Basic base64('api:KEY')`,
+read the `Location` header, GET the compressed bytes with the same auth.
+Status codes and errors propagate back to the JS as `WP_Error` with a
+502. The `RUHRATNA_SKIP_TINIFY` flag at the top of
+[includes/proxy.php](includes/proxy.php) short-circuits compression and
+forwards the raw bytes straight to Railway — useful when the TinyPNG
+quota is exhausted or for local debugging.
 
 Upstream JSON is parsed and re-emitted via `WP_REST_Response` so the
 WordPress REST stack handles content negotiation and status codes.
@@ -110,15 +116,37 @@ JS swaps which top-level section is visible via `style.display`.
 
 - **Style My Outfit →** smooth-scrolls to `#upload-section`
 - **Find My Match →** validates a photo + occasion are picked, then
-  `findMatch()` swaps to `#screen-loading`, runs `/analyse` + `/match`,
-  animates the step indicators, then swaps to `#screen-results` with an
-  800 ms pause so the user sees the green ✓ on step 2.
+  `findMatch()` swaps to `#screen-loading` and runs three sequential
+  REST calls:
+  1. `POST /analyse` → returns `outfit_analysis` synchronously. JS marks
+     step 1 done, paints the right-column outfit card, and on mobile
+     scroll-eases the page down so the card is in view.
+  2. `POST /match` → returns `{ job_id }` immediately. JS reveals the
+     `#progress-card` (bar + rotating status messages) below the outfit
+     card and kicks off the bar animation.
+  3. `GET /result/<job_id>` every 4 s until status is `"done"` or
+     `"error"`. Each poll URL has a fresh `?_=<ts>` to defeat browser /
+     CDN / page-cache plugin caching. On `"done"`, JS snaps the bar to
+     100 %, marks step 2 done, waits 800 ms so the user catches the green
+     ✓, then swaps to `#screen-results`.
+- The progress bar is a single declarative 80 s CSS transition from 0 %
+  to 95 %; the 100 % snap is a separate 0.4 s easing applied on `"done"`.
+  Rotating messages live in `PROGRESS_MESSAGES` and swap every 8 s with
+  a 200 ms opacity fade. `pollIntervalId`, `progressMessageIntervalId`,
+  and `progressFadeTimeoutId` are kept in module scope so `popstate` and
+  the error handler can cancel them; `stopProgressAnimation()` is the
+  single shutdown point.
 - On `#screen-results` show, JS adds `is-results` to `<html>` (kills
   snap-scroll for the long-scroll results page) and pushes a history
-  entry. Browser back fires `popstate` which restores `#main-content`
-  and clears the `is-results` class.
+  entry. Browser back fires `popstate` which restores `#main-content`,
+  clears the `is-results` class, and cancels any in-flight polling.
+- Mobile-only `scrollToEl(el, offset)` no-ops above 1024 px (the desktop
+  sticky-left layout already keeps everything in view). Used at the
+  Phase 2 outfit-card reveal and the Phase 4 "Your Stylist Says" reveal
+  so the mobile viewport lands on the freshly-painted section.
 - Errors route through `showError(message)` which replaces the loading
-  section with a centered "Try Again" card.
+  section with a centered "Try Again" card and shuts down the polling
+  + progress timers.
 
 ## Theme isolation
 

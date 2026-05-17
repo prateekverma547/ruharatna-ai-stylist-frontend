@@ -40,15 +40,19 @@
   const mainContent      = $("main-content");
   const screenLoading    = $("screen-loading");
   const outfitCard       = $("outfit-reading-card");
+  const progressCard     = $("progress-card");
 
   // results screen
   const screenResults    = $("screen-results");
   const showMoreBtn      = $("show-more-btn");
 
   // app state
-  let selectedFile     = null;
-  let selectedOccasion = null;
-  let outfitAnalysis   = null;
+  let selectedFile               = null;
+  let selectedOccasion           = null;
+  let outfitAnalysis             = null;
+  let pollIntervalId             = null;   // setInterval handle for the /result polling loop
+  let progressMessageIntervalId  = null;   // setInterval handle for the rotating progress messages
+  let progressFadeTimeoutId      = null;   // setTimeout handle for the 200ms text-fade swap
 
   /* ---------------------------------------------------------
      "Show more picks" → reveal tier-2 cards
@@ -61,6 +65,13 @@
      popstate always means "go back from results".
      --------------------------------------------------------- */
   window.addEventListener("popstate", () => {
+    // stop any in-flight match-result polling so it can't fire after navigation
+    if (pollIntervalId !== null) {
+      clearInterval(pollIntervalId);
+      pollIntervalId = null;
+    }
+    // and any progress-bar / message animation timers
+    stopProgressAnimation();
     mainContent  .style.display = "";
     screenResults.style.display = "none";
     screenLoading.style.display = "none";
@@ -144,6 +155,14 @@
     if (bytes < 1024)        return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  // Mobile-only smooth scroll. Desktop (≥1024px) keeps the static
+  // two-column layout, so we no-op there to avoid jumping the page.
+  function scrollToEl(el, offset) {
+    if (!el || window.innerWidth >= 1024) return;
+    const top = el.getBoundingClientRect().top + window.scrollY - (offset || 80);
+    window.scrollTo({ top, behavior: "smooth" });
   }
 
   function handleFileSelected(file) {
@@ -267,6 +286,10 @@
     requestAnimationFrame(() => {
       requestAnimationFrame(() => outfitCard.classList.add("is-visible"));
     });
+
+    // Phase 2 — slide the page down to the real outfit card so the
+    // user sees the analysis right after it appears.
+    setTimeout(() => scrollToEl(outfitCard), 200);
   }
 
   function showError(message) {
@@ -314,7 +337,7 @@
     try {
       const base64 = await toBase64(selectedFile);
 
-      // CALL 1 — /analyse
+      // CALL 1 — /analyse  (synchronous; returns outfit_analysis directly)
       const analyseRes = await fetch(`${window.ruhratnaStyler.apiBase}/analyse`, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
@@ -331,7 +354,7 @@
       setStepState("lstep-2", "active");
       showOutfitCard(outfitAnalysis);
 
-      // CALL 2 — /match
+      // CALL 2 — /match  (async; returns a job_id immediately)
       const matchRes = await fetch(`${window.ruhratnaStyler.apiBase}/match`, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
@@ -342,24 +365,169 @@
       });
       if (!matchRes.ok) throw new Error(`Match failed (${matchRes.status})`);
 
-      const matchData = await matchRes.json();
-      console.log("[ruhratna] match results:", matchData);
+      const { job_id } = await matchRes.json();
+      if (!job_id) throw new Error("Match did not return a job_id");
+      console.log("[ruhratna] match job started:", job_id);
 
-      setStepState("lstep-2", "done");
-
-      // brief pause so the user catches the green ✓ before swapping screens
-      setTimeout(() => {
-        screenLoading.style.display = "none";
-        screenResults.style.display = "block";
-        document.documentElement.classList.add("is-results");
-        window.scrollTo(0, 0);
-        history.pushState({ screen: "results" }, "");
-        showResults(matchData);
-      }, 800);
+      // CALL 3 — poll /result/<job_id> every 4s until status changes,
+      // and start the user-facing progress bar + rotating messages
+      pollMatchResult(job_id);
+      startProgressAnimation();
 
     } catch (error) {
       console.error("[ruhratna] error:", error);
+      stopProgressAnimation();
       showError(error.message);
+    }
+  }
+
+  function pollMatchResult(jobId) {
+    // cancel any previous polling loop, then store this one in module scope
+    // so the popstate handler can clear it if the user hits Back mid-poll.
+    if (pollIntervalId !== null) clearInterval(pollIntervalId);
+
+    const stopPolling = () => {
+      if (pollIntervalId !== null) {
+        clearInterval(pollIntervalId);
+        pollIntervalId = null;
+      }
+    };
+
+    // Phase 3 — reveal the progress card now that /match is in flight.
+    // No scroll: the Phase 2 viewport position already shows both the
+    // outfit card and the progress card together below it.
+    if (progressCard) progressCard.hidden = false;
+
+    pollIntervalId = setInterval(async () => {
+      // rebuild the URL each tick with a fresh _=<ts> param so intermediaries
+      // (browser cache, CDN edge, WP page-cache plugins) can't serve a stale
+      // "running" response after the job has flipped to "done".
+      const pollUrl = `${window.ruhratnaStyler.apiBase}/result/${encodeURIComponent(jobId)}?_=${Date.now()}`;
+      try {
+        const res = await fetch(pollUrl);
+        if (!res.ok) throw new Error(`Result poll failed (${res.status})`);
+        const data = await res.json();
+
+        if (data.status === "done") {
+          stopPolling();
+          console.log("[ruhratna] match results:", data.result);
+          setStepState("lstep-2", "done");
+          completeProgressAnimation();
+
+          // brief pause so the user catches the green ✓ + the full bar
+          setTimeout(() => {
+            stopProgressAnimation();
+            screenLoading.style.display = "none";
+            screenResults.style.display = "block";
+            document.documentElement.classList.add("is-results");
+            history.pushState({ screen: "results" }, "");
+            showResults(data.result);
+
+            // Phase 4 — land the user on the "Your Stylist Says" card on
+            // mobile. scrollToEl no-ops on desktop, where the sticky-left
+            // layout already keeps the stylist card in view.
+            setTimeout(() => {
+              const stylistCard = document.querySelector(".stylist-card");
+              if (stylistCard) scrollToEl(stylistCard, 80);
+            }, 100);
+          }, 800);
+
+        } else if (data.status === "error") {
+          stopPolling();
+          stopProgressAnimation();
+          console.error("[ruhratna] match job error:", data);
+          showError(data.message || "Match job failed");
+        }
+        // status === "running" (or anything else) → keep polling
+      } catch (err) {
+        stopPolling();
+        stopProgressAnimation();
+        console.error("[ruhratna] poll error:", err);
+        showError(err.message);
+      }
+    }, 4000);
+  }
+
+  /* ---------------------------------------------------------
+     Progress bar + rotating status messages.
+     The bar runs 0% → 95% via a single 80s CSS transition
+     (purely declarative, no JS tick). The messages rotate every
+     8s via setInterval. When /result returns "done" we snap the
+     bar to 100% with a quick easing, hold for 800ms, then
+     handle the results swap.
+     --------------------------------------------------------- */
+  const PROGRESS_MESSAGES = [
+    "Finding jewellery that matches your outfit...",
+    "Analysing your colours and style...",
+    "Reading your neckline and silhouette...",
+    "Matching pieces from our collection...",
+    "Checking occasion and vibe fit...",
+    "Scoring each piece for compatibility...",
+    "Curating your top picks...",
+    "Balancing your complete look...",
+    "Almost there, finalising your style...",
+    "Just a moment more, perfecting your match...",
+    "Worth the wait — your stylist is thorough...",
+  ];
+
+  function startProgressAnimation() {
+    const bar = $("loading-progress-bar");
+    const msg = $("loading-progress-message");
+    if (!bar || !msg) return;
+
+    // ensure a clean slate (handles re-entry e.g. from a retry)
+    stopProgressAnimation();
+
+    // reset bar to 0% with no transition, then trigger the 80s ramp to 95%
+    bar.style.transition = "none";
+    bar.style.width      = "0%";
+    void bar.offsetWidth; // force reflow so the next transition takes effect
+    bar.style.transition = "width 80s linear";
+    bar.style.width      = "95%";
+
+    // first message shows immediately, no fade
+    msg.style.opacity   = "1";
+    msg.textContent     = PROGRESS_MESSAGES[0];
+
+    let idx = 1;
+    progressMessageIntervalId = setInterval(() => {
+      if (idx >= PROGRESS_MESSAGES.length) {
+        clearInterval(progressMessageIntervalId);
+        progressMessageIntervalId = null;
+        return;
+      }
+      fadeSwapMessage(PROGRESS_MESSAGES[idx]);
+      idx++;
+    }, 8000);
+  }
+
+  function fadeSwapMessage(text) {
+    const msg = $("loading-progress-message");
+    if (!msg) return;
+    msg.style.opacity = "0";
+    if (progressFadeTimeoutId !== null) clearTimeout(progressFadeTimeoutId);
+    progressFadeTimeoutId = setTimeout(() => {
+      msg.textContent   = text;
+      msg.style.opacity = "1";
+      progressFadeTimeoutId = null;
+    }, 200);
+  }
+
+  function completeProgressAnimation() {
+    const bar = $("loading-progress-bar");
+    if (!bar) return;
+    bar.style.transition = "width 0.4s ease";
+    bar.style.width      = "100%";
+  }
+
+  function stopProgressAnimation() {
+    if (progressMessageIntervalId !== null) {
+      clearInterval(progressMessageIntervalId);
+      progressMessageIntervalId = null;
+    }
+    if (progressFadeTimeoutId !== null) {
+      clearTimeout(progressFadeTimeoutId);
+      progressFadeTimeoutId = null;
     }
   }
 
