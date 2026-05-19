@@ -50,6 +50,7 @@
   let selectedFile               = null;
   let selectedOccasion           = null;
   let outfitAnalysis             = null;
+  let sessionId                  = null;
   let pollIntervalId             = null;   // setInterval handle for the /result polling loop
   let progressMessageIntervalId  = null;   // setInterval handle for the rotating progress messages
   let progressFadeTimeoutId      = null;   // setTimeout handle for the 200ms text-fade swap
@@ -244,7 +245,9 @@
   }
 
   function handleFileSelected(file) {
-    selectedFile = file;
+    selectedFile   = file;
+    outfitAnalysis = null;
+    sessionId      = null;
     console.log(`[ruhratna] photo selected: ${file.name} (${file.type}, ${file.size} bytes)`);
 
     const reader = new FileReader();
@@ -438,6 +441,7 @@
 
       const analyseData = await analyseRes.json();
       outfitAnalysis = analyseData.outfit_analysis;
+      sessionId      = analyseData.session_id || null;
       console.log("[ruhratna] outfit analysis:", outfitAnalysis);
 
       // Phase 2 — outfit card slides in, step 2 takes over
@@ -452,6 +456,7 @@
         body:    JSON.stringify({
           outfit_analysis: outfitAnalysis,
           occasion:        selectedOccasion,
+          session_id:      sessionId,
         }),
       });
       if (!matchRes.ok) throw new Error(`Match failed (${matchRes.status})`);

@@ -92,8 +92,13 @@ function ruhratna_ais_proxy_analyse(WP_REST_Request $request) {
  * "done" or "error".
  * --------------------------------------------------------- */
 function ruhratna_ais_proxy_match(WP_REST_Request $request) {
-    $params = $request->get_json_params();
-    return ruhratna_ais_forward_to_railway('/match', $params);
+    $params  = $request->get_json_params();
+    $payload = [
+        'outfit_analysis' => isset($params['outfit_analysis']) ? $params['outfit_analysis'] : null,
+        'occasion'        => isset($params['occasion'])        ? $params['occasion']        : null,
+        'session_id'      => isset($params['session_id'])      ? $params['session_id']      : null,
+    ];
+    return ruhratna_ais_forward_to_railway('/match', $payload);
 }
 
 /* -----------------------------------------------------------
