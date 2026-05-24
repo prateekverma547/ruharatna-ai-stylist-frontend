@@ -78,7 +78,7 @@ browsers refetch.
 ```php
 const RUHRATNA_TINIFY_KEY    = '...';
 const RUHRATNA_RAILWAY_URL   = 'https://web-production-8b1fc.up.railway.app';
-define('RUHRATNA_SKIP_TINIFY', true);   // bypass TinyPNG entirely
+define('RUHRATNA_SKIP_TINIFY', false);  // set true to bypass TinyPNG entirely
 ```
 
 All three endpoints are public (`permission_callback => '__return_true'`)
@@ -86,8 +86,8 @@ because they need to work for unauthenticated visitors.
 
 | Route | Body | Flow |
 |---|---|---|
-| `POST /wp-json/ruhratna-stylist/v1/analyse`       | `{ image: <base64>, occasion }` | base64 → (TinyPNG, optional) → re-encode → Railway `/analyse` → returns `outfit_analysis` synchronously |
-| `POST /wp-json/ruhratna-stylist/v1/match`         | `{ outfit_analysis, occasion }` | Forward to Railway `/match` → returns `{ job_id }` **immediately** (async) |
+| `POST /wp-json/ruhratna-stylist/v1/analyse`       | `{ image: <base64>, occasion }` | base64 → (TinyPNG, optional) → re-encode → Railway `/analyse` → returns `{ outfit_analysis, session_id }` synchronously, or `{ error: true, confidence_flag: 0, rejection_reason }` when the photo can't be styled |
+| `POST /wp-json/ruhratna-stylist/v1/match`         | `{ outfit_analysis, occasion, session_id }` | Proxy explicitly forwards only these three fields; `session_id` is optional (null when absent — backend logging just skips). Railway returns `{ job_id }` **immediately** (async) |
 | `GET  /wp-json/ruhratna-stylist/v1/result/<job_id>` | — | Forward to Railway `/result/<job_id>` → returns `{ status: "running" }`, `{ status: "done", result }`, or `{ status: "error", message }` |
 
 TinyPNG compression (when not skipped): POST raw bytes to
@@ -97,10 +97,50 @@ Status codes and errors propagate back to the JS as `WP_Error` with a
 502. The `RUHRATNA_SKIP_TINIFY` flag at the top of
 [includes/proxy.php](includes/proxy.php) short-circuits compression and
 forwards the raw bytes straight to Railway — useful when the TinyPNG
-quota is exhausted or for local debugging.
+quota is exhausted or for local debugging. **Currently `false`** —
+TinyPNG is active on top of the client-side resize (see "Client-side
+image processing" below).
 
 Upstream JSON is parsed and re-emitted via `WP_REST_Response` so the
 WordPress REST stack handles content negotiation and status codes.
+
+## Client-side image processing
+
+`processImageForUpload(file, maxPx = 1024)` in
+[assets/js/stylist.js](assets/js/stylist.js) runs before every `/analyse`
+call and shrinks the payload before it ever leaves the browser:
+
+1. **HEIC / HEIF → JPEG.** Detected by MIME (`image/heic`, `image/heif`)
+   or extension. Converted via `window.heic2any({ blob: file, toType:
+   'image/jpeg', quality: 0.9 })`. The library returns either a `Blob`
+   or a `Blob[]` for multi-image HEICs; we normalise by taking the
+   first element when it's an array.
+2. **Canvas resize.** A temporary `Image` loads from
+   `URL.createObjectURL(sourceBlob)`. The longest edge is capped at
+   `maxPx` (1024 by default) with aspect-ratio preserved; the image is
+   drawn onto a fresh `<canvas>` at the new dimensions and exported via
+   `canvas.toDataURL('image/jpeg', 0.85)`. The `data:image/jpeg;base64,`
+   prefix is stripped and the bare base64 string is returned.
+   `URL.revokeObjectURL()` runs in both onload and onerror paths.
+
+Either stage falling back is safe: on HEIC-conversion failure the
+function does a raw `toBase64(file)` read; on canvas failure (zero
+dimensions, decode error, etc) it does the same. A `console.warn` notes
+why. End result: `/analyse` always gets *something*, even if it's an
+unresized raw original.
+
+**heic2any is loaded from a CDN** via a raw `<script>` tag near the
+bottom of [templates/ai-stylist.php](templates/ai-stylist.php), just
+before `get_footer()` — *not* through `wp_enqueue_script`. The plugin's
+own JS is enqueued in the footer (5th arg `true` to
+`wp_enqueue_script`), so WordPress emits it inside `get_footer()`'s
+`wp_footer` action. A raw tag placed above `get_footer()` therefore
+appears in the DOM *before* the plugin's JS executes, guaranteeing
+`window.heic2any` is defined when `processImageForUpload()` first runs.
+
+With both client resize (1024 px max edge, 0.85 JPEG) and TinyPNG
+running, a 4 MB iPhone HEIC ends up as a sub-100 KB JPEG by the time
+Railway sees it.
 
 ## Screen flow (frontend)
 
@@ -144,13 +184,21 @@ which mirrors how the user got in.
   Enter/Space keydown listener for keyboard parity.
 - **Find My Match →** validates a photo + occasion are picked, then
   `findMatch()` calls `showScreen('loading')` and runs three sequential
-  REST calls:
-  1. `POST /analyse` → returns `outfit_analysis` synchronously. JS marks
-     step 1 done, paints the right-column outfit card, and on mobile
-     scroll-eases the page down so the card is in view.
-  2. `POST /match` → returns `{ job_id }` immediately. JS reveals the
-     `#progress-card` (bar + rotating status messages) below the outfit
-     card and kicks off the bar animation.
+  REST calls (preceded by client-side image prep — see "Client-side
+  image processing" above):
+  1. `POST /analyse` → returns `{ outfit_analysis, session_id }`
+     synchronously. JS stores both (`sessionId` lives next to
+     `outfitAnalysis` in module scope), marks step 1 done, paints the
+     right-column outfit card, and on mobile scroll-eases the page down
+     so the card is in view. If the response is instead
+     `{ error: true, confidence_flag: 0, rejection_reason }`, JS
+     short-circuits into `showRejectionMessage()` and never calls
+     `/match` — see "Rejection card" below.
+  2. `POST /match` → returns `{ job_id }` immediately. JS sends
+     `{ outfit_analysis, occasion, session_id }` (the `session_id`
+     captured in step 1; null is fine — backend logging is best-effort).
+     Reveals the `#progress-card` (bar + rotating status messages)
+     below the outfit card and kicks off the bar animation.
   3. `GET /result/<job_id>` every 4 s until status is `"done"` or
      `"error"`. Each poll URL has a fresh `?_=<ts>` to defeat browser /
      CDN / page-cache plugin caching. On `"done"`, JS snaps the bar to
@@ -170,6 +218,24 @@ which mirrors how the user got in.
 - Errors route through `showError(message)` which replaces the loading
   section with a centered "Try Again" card and shuts down the polling
   + progress timers.
+- **Rejection card.** When `/analyse` returns
+  `{ error: true, confidence_flag: 0, rejection_reason }` (the backend
+  couldn't make sense of the photo — group shot, blurry, no outfit,
+  etc), `showRejectionMessage(escapeHtml(reason))` hides the
+  `#screen-loading > .layout` *non-destructively* (sets
+  `style.display = 'none'`, doesn't wipe `innerHTML` — unlike
+  `showError`, which uses a wipe + `location.reload()` retry) and
+  appends a centered `.rejection-card` with a "Try another photo"
+  button. The button calls `resetPhotoSelection()` (nukes
+  `selectedFile`/`selectedOccasion`, clears all three file inputs'
+  `.value` so the same file can be re-picked, hides the preview card
+  + re-shows the upload zone, deselects any chip and collapses the
+  occasion section), nulls `sessionId` + `outfitAnalysis`, removes the
+  rejection card + restores the layout's `display`, and finally
+  `showScreen('upload', { history: 'replace' })`. End result: user
+  lands on a *clean* upload screen with nothing stale, and a fresh
+  Find My Match attempt walks the loading screen's original DOM as if
+  it were the first run.
 
 ## Theme isolation
 
@@ -226,8 +292,22 @@ first). The handler:
 1. `e.preventDefault()` — no navigation.
 2. `fetch(url, { credentials: 'same-origin' })` — WooCommerce updates
    the cart session cookie server-side.
-3. On 2xx, `window.jQuery(document.body).trigger('added_to_cart')` —
-   the theme's side cart listens on that event and pops open.
+3. On 2xx, the side-cart open is a **two-step jQuery dance** instead of
+   a bare `added_to_cart` trigger:
+   ```js
+   $(document.body).trigger('wc_fragment_refresh');
+   $(document.body).one('wc_fragments_refreshed', function () {
+     $(document.body).trigger('added_to_cart');
+   });
+   ```
+   `wc_fragment_refresh` makes WooCommerce re-fetch its cached cart
+   HTML fragments (mini-cart contents, count badges, etc); only after
+   `wc_fragments_refreshed` fires do we trigger `added_to_cart`, which
+   tells the theme's side-cart widget to pop open. Without the
+   refresh-first step the side cart can open showing *stale* contents
+   (no new item) until a manual page reload. `.one()` (not `.on()`)
+   self-unbinds after firing so listeners don't stack across multiple
+   Add to Cart clicks.
 4. Button text flashes "Adding..." → "✓ Added" → reverts after
    1500 ms; pointer-events disabled during the request to prevent
    double-clicks.
@@ -352,6 +432,15 @@ same section.
 - **Three file inputs** (`#photoInput` desktop, `#cameraInput` mobile
   camera with `capture="environment"`, `#galleryInput` mobile gallery).
   All three share `handleFileSelected(file)`.
+- **`processImageForUpload(file, maxPx)`** runs before every `/analyse`
+  call (HEIC convert → canvas resize → base64). Both stages fall back
+  to a raw `toBase64()` read on failure with a `console.warn`.
+- **`resetPhotoSelection()`** rolls the upload screen back to its
+  empty state — file inputs cleared, preview hidden, upload zone +
+  mobile options re-shown, chip deselected and occasion section
+  collapsed. Used by the rejection-card retry. Don't bypass it from
+  there: skipping it leaves the rejected photo's preview + occasion
+  pick still on screen when the user lands back on `#screen-upload`.
 - **`renderCompleteLook(card, cl, recs)`** fills the complete-look card
   with image-thumb fallback (`img.onerror` swaps the thumb for a
   `.cl-piece-pill` text fallback).

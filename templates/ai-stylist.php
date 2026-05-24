@@ -550,5 +550,10 @@ get_header();
   <input type="file" id="cameraInput"  accept="image/*" capture="environment" hidden />
   <input type="file" id="galleryInput" accept="image/*" hidden />
 </div>
+
+<!-- HEIC → JPEG conversion (iPhone photos). Loaded before the plugin's
+     own JS (which is enqueued in the footer) so window.heic2any is
+     defined by the time stylist.js needs it. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/heic2any/0.0.4/heic2any.min.js"></script>
 <?php
 get_footer();

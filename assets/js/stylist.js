@@ -142,7 +142,15 @@
         if (res.ok) {
           cartBtn.textContent = "✓ Added";
           if (window.jQuery) {
-            window.jQuery(document.body).trigger("added_to_cart");
+            // Force WooCommerce to refresh cart fragments first; only after
+            // the fragments are back do we fire 'added_to_cart', which opens
+            // the side cart. Without this two-step the side cart can open
+            // showing stale contents (missing the item we just added) until
+            // a page refresh.
+            window.jQuery(document.body).trigger("wc_fragment_refresh");
+            window.jQuery(document.body).one("wc_fragments_refreshed", function () {
+              window.jQuery(document.body).trigger("added_to_cart");
+            });
           }
         } else {
           cartBtn.textContent = "Try again";
@@ -242,6 +250,33 @@
     if (!el || window.innerWidth >= 1024) return;
     const top = el.getBoundingClientRect().top + window.scrollY - (offset || 80);
     window.scrollTo({ top, behavior: "smooth" });
+  }
+
+  // Roll the upload screen back to its initial empty state. Used by the
+  // rejection-card retry so the just-rejected photo + stale occasion pick
+  // aren't still sitting on #screen-upload when the user lands back on it.
+  function resetPhotoSelection() {
+    selectedFile     = null;
+    selectedOccasion = null;
+
+    // clear the file inputs so selecting the same file again still re-fires
+    // the change event (browsers suppress change when the value is identical)
+    [photoInput, cameraInput, galleryInput].forEach((input) => { input.value = ""; });
+
+    photoPreviewImg.removeAttribute("src");
+    photoPreviewName.textContent = "";
+    photoPreviewSize.textContent = "";
+    photoPreview        .hidden = true;
+    uploadZone          .hidden = false;
+    mobileUploadOptions .hidden = false;
+
+    // collapse the occasion section + deselect any chip — the section
+    // re-reveals next time handleFileSelected runs
+    occasionGrid.querySelectorAll(".chip").forEach((c) => c.classList.remove("is-selected"));
+    occasionSection.classList.remove("is-visible");
+    occasionSection.setAttribute("aria-hidden", "true");
+    occasionHintErr.hidden = true;
+    occasionGrid.classList.remove("is-shaking");
   }
 
   function handleFileSelected(file) {
@@ -389,6 +424,37 @@
     setTimeout(() => scrollToEl(outfitCard), 200);
   }
 
+  function showRejectionMessage(reason) {
+    // Hide the existing loading layout (steps + outfit cards) without
+    // destroying it, so a subsequent Find My Match can re-use the same DOM.
+    const loadingLayout = screenLoading.querySelector(".layout");
+    if (loadingLayout) loadingLayout.style.display = "none";
+
+    // remove any prior rejection card so retries don't stack
+    const prior = screenLoading.querySelector(".rejection-card");
+    if (prior) prior.remove();
+
+    const card = document.createElement("div");
+    card.className = "rejection-card";
+    card.innerHTML = `
+      <h2 class="rejection-heading">We couldn't style this photo</h2>
+      <p class="rejection-message">${reason}</p>
+      <button type="button" class="btn btn-gold rejection-retry-btn">
+        Try another photo <span class="btn-arrow">→</span>
+      </button>`;
+
+    card.querySelector(".rejection-retry-btn").addEventListener("click", () => {
+      sessionId      = null;
+      outfitAnalysis = null;
+      resetPhotoSelection();
+      card.remove();
+      if (loadingLayout) loadingLayout.style.display = "";
+      showScreen("upload", { history: "replace" });
+    });
+
+    screenLoading.appendChild(card);
+  }
+
   function showError(message) {
     screenLoading.innerHTML = `
       <div style="text-align:center; padding:60px 24px; max-width:480px; margin:0 auto">
@@ -422,6 +488,81 @@
     });
   }
 
+  /* ---------------------------------------------------------
+     Client-side image prep before /analyse:
+       (a) iPhone HEIC/HEIF → JPEG via heic2any (loaded as a
+           <script> tag in the template).
+       (b) Canvas resize — cap the longest edge at maxPx and
+           re-encode as JPEG at 0.85 quality, so the base64
+           payload sent to the WP REST proxy stays small.
+     Any failure in either step falls back to a raw FileReader
+     base64 read so we never block the upload on a transform.
+     --------------------------------------------------------- */
+  async function processImageForUpload(file, maxPx = 1024) {
+    const name = String(file.name || "").toLowerCase();
+    const isHeic =
+      file.type === "image/heic" ||
+      file.type === "image/heif" ||
+      name.endsWith(".heic") ||
+      name.endsWith(".heif");
+
+    let sourceBlob = file;
+
+    if (isHeic && typeof window.heic2any === "function") {
+      try {
+        const converted = await window.heic2any({
+          blob:    file,
+          toType:  "image/jpeg",
+          quality: 0.9,
+        });
+        // heic2any returns Blob, or Blob[] for multi-image HEIC — normalise
+        sourceBlob = Array.isArray(converted) ? converted[0] : converted;
+      } catch (err) {
+        console.warn("[ruhratna] HEIC conversion failed, sending raw:", err);
+        return toBase64(file);
+      }
+    }
+
+    try {
+      return await new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(sourceBlob);
+        const img = new Image();
+
+        img.onload = () => {
+          try {
+            const w = img.naturalWidth;
+            const h = img.naturalHeight;
+            if (!w || !h) throw new Error("Image has zero dimensions");
+
+            const scale = Math.min(1, maxPx / Math.max(w, h));
+            const newW  = Math.round(w * scale);
+            const newH  = Math.round(h * scale);
+
+            const canvas = document.createElement("canvas");
+            canvas.width  = newW;
+            canvas.height = newH;
+            canvas.getContext("2d").drawImage(img, 0, 0, newW, newH);
+
+            const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+            URL.revokeObjectURL(url);
+            resolve(dataUrl.split(",")[1]);
+          } catch (e) {
+            URL.revokeObjectURL(url);
+            reject(e);
+          }
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(url);
+          reject(new Error("Could not decode image"));
+        };
+        img.src = url;
+      });
+    } catch (err) {
+      console.warn("[ruhratna] canvas resize failed, sending raw:", err);
+      return toBase64(file);
+    }
+  }
+
   async function findMatch() {
     showScreen("loading");
 
@@ -429,17 +570,31 @@
     setStepState("lstep-2", "pending");
 
     try {
-      const base64 = await toBase64(selectedFile);
+      const imageBase64 = await processImageForUpload(selectedFile);
 
+      // imageBase64 is resized to 1024px and HEIC-converted if needed,
+      // all client-side. On the WordPress server, proxy.php optionally
+      // compresses further via TinyPNG (controlled by RUHRATNA_SKIP_TINIFY —
+      // currently true on staging, set to false on live). No JS changes
+      // needed when TinyPNG is activated — it is purely a server-side flag.
       // CALL 1 — /analyse  (synchronous; returns outfit_analysis directly)
       const analyseRes = await fetch(`${window.ruhratnaStyler.apiBase}/analyse`, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ image: base64, occasion: selectedOccasion }),
+        body:    JSON.stringify({ image: imageBase64, occasion: selectedOccasion }),
       });
       if (!analyseRes.ok) throw new Error(`Analyse failed (${analyseRes.status})`);
 
       const analyseData = await analyseRes.json();
+
+      // Backend rejected the photo (e.g. not a clear outfit shot). Skip the
+      // /match step and show a stylist-tone retry card instead.
+      if (analyseData.error === true && analyseData.confidence_flag === 0) {
+        stopProgressAnimation();
+        showRejectionMessage(escapeHtml(analyseData.rejection_reason));
+        return;
+      }
+
       outfitAnalysis = analyseData.outfit_analysis;
       sessionId      = analyseData.session_id || null;
       console.log("[ruhratna] outfit analysis:", outfitAnalysis);

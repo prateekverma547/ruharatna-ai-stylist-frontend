@@ -14,7 +14,7 @@
 
 defined('ABSPATH') or exit;
 
-define('RUHRATNA_SKIP_TINIFY', true);
+define('RUHRATNA_SKIP_TINIFY', false);
 
 /* ---- Hardcoded credentials (replace TinyPNG key before deploying) ---- */
 const RUHRATNA_TINIFY_KEY  = '91Y80DhGqSqpLDzHqQLm3h3PTdCHB3mH';
